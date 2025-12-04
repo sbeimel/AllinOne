@@ -1846,6 +1846,9 @@ def xmltv():
 @app.route("/play/<portalId>/<channelId>", methods=["GET"])
 def channel(portalId, channelId):
     def streamData():
+        # initialize ffmpeg_sp to avoid UnboundLocalError in finally
+        ffmpeg_sp = None
+
         def occupy():
             occupied.setdefault(portalId, [])
             occupied.get(portalId, []).append(
@@ -1861,45 +1864,90 @@ def channel(portalId, channelId):
             logger.info("Occupied Portal({}):MAC({})".format(portalId, mac))
 
         def unoccupy():
-            occupied.get(portalId, []).remove(
-                {
-                    "mac": mac,
-                    "channel id": channelId,
-                    "channel name": channelName,
-                    "client": ip,
-                    "portal name": portalName,
-                    "start time": startTime,
-                }
-            )
-            logger.info("Unoccupied Portal({}):MAC({})".format(portalId, mac))
-
+            try:
+                occupied.get(portalId, []).remove(
+                    {
+                        "mac": mac,
+                        "channel id": channelId,
+                        "channel name": channelName,
+                        "client": ip,
+                        "portal name": portalName,
+                        "start time": startTime,
+                    }
+                )
+            except ValueError:
+                # already removed or not present
+                logger.debug("Attempted to unoccupy a non-occupied slot for Portal({}) MAC({})".format(portalId, mac))
+            except Exception as e:
+                logger.debug("Error during unoccupy: %s" % e)
+            else:
+                logger.info("Unoccupied Portal({}):MAC({})".format(portalId, mac))
 
         try:
             startTime = datetime.now(timezone.utc).timestamp()
             occupy()
-            with subprocess.Popen(
+
+            # Start ffmpeg as a subprocess and keep the handle in ffmpeg_sp
+            ffmpeg_sp = subprocess.Popen(
                 ffmpegcmd,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
-            ) as ffmpeg_sp:
-                while True:
+            )
+
+            # Read and yield in chunks until EOF
+            while True:
+                try:
                     chunk = ffmpeg_sp.stdout.read(1024)
-                    if len(chunk) == 0:
-                        if ffmpeg_sp.poll() != 0:
-                            logger.info("Ffmpeg closed with error({}). Moving MAC({}) for Portal({})".format(str(ffmpeg_sp.poll()), mac, portalName))
+                except Exception as e:
+                    logger.error(f"Error reading from ffmpeg stdout: {e}")
+                    break
+
+                if not chunk:
+                    # If process exited with non-zero, attempt to rotate MAC
+                    rc = ffmpeg_sp.poll()
+                    if rc is not None and rc != 0:
+                        logger.info("Ffmpeg closed with error({}). Moving MAC({}) for Portal({})".format(str(rc), mac, portalName))
+                        try:
                             moveMac(portalId, mac)
-                        break
-                    yield chunk
-        except Exception:
-            pass
+                        except Exception as e:
+                            logger.debug(f"Error moving MAC: {e}")
+                    break
+
+                yield chunk
+
+        except Exception as e:
+            # log exception for debugging but don't re-raise to ensure cleanup runs
+            logger.error(f"Exception in streamData for Portal({portalId}) Channel({channelId}): {e}")
+
         finally:
-            unoccupy()
+            # Ensure we always release the occupied slot
+            try:
+                unoccupy()
+            except Exception as e:
+                logger.debug(f"Error during unoccupy in finally: {e}")
+
+            # Kill and cleanup ffmpeg process if it was started
             try:
                 if ffmpeg_sp is not None:
-                    ffmpeg_sp.kill()
-            except Exception:
-                pass
+                    try:
+                        if ffmpeg_sp.poll() is None:
+                            ffmpeg_sp.kill()
+                    except Exception:
+                        pass
+                    # Close pipes if present
+                    try:
+                        if ffmpeg_sp.stdout:
+                            ffmpeg_sp.stdout.close()
+                    except Exception:
+                        pass
+                    try:
+                        if ffmpeg_sp.stderr:
+                            ffmpeg_sp.stderr.close()
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.debug(f"Error cleaning up ffmpeg process: {e}")
         
 
     def testStream():
