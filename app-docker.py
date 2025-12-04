@@ -15,12 +15,22 @@ logger.setLevel(logging.DEBUG)
 logFormat = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
 
-home_dir = os.path.expanduser("~")  # Get the user's home directory
-log_dir = os.path.join(home_dir, "Evilvir.us")  # Subdirectory for logs
-# Create the directory if it doesn't already exist
+# Docker-optimized paths
+if os.getenv("CONFIG"):
+    configFile = os.getenv("CONFIG")
+    log_dir = os.path.dirname(configFile)
+else:
+    # Default paths for container
+    log_dir = "/app/data"
+    configFile = os.path.join(log_dir, "MacReplay.json")
+
+# Create directories if they don't exist
 os.makedirs(log_dir, exist_ok=True)
-# Full path to the log file
-log_file_path = os.path.join(log_dir, "MacReplay.log")
+os.makedirs("/app/logs", exist_ok=True)
+
+# Log file path for container
+log_file_path = os.path.join("/app/logs", "MacReplay.log")
+
 # Set up the FileHandler
 fileHandler = logging.FileHandler(log_file_path)
 fileHandler.setFormatter(logFormat)
@@ -74,7 +84,7 @@ basePath = os.path.abspath(os.getcwd())
 if os.getenv("HOST"):
     host = os.getenv("HOST")
 else:
-    host = "ubuntu.verbergwest.appboxes.co:13681"
+    host = "0.0.0.0:8001"
 logger.info(f"Server started on http://{host}")
 
 # Get the base path for the user directory
@@ -84,7 +94,7 @@ basePath = os.path.expanduser("~")
 if os.getenv("CONFIG"):
     configFile = os.getenv("CONFIG")
 else:
-    configFile = os.path.join(basePath, "evilvir.us", "MacReplay.json")
+    configFile = os.path.join(log_dir, "MacReplay.json")
 
 # Ensure the subdirectory exists
 os.makedirs(os.path.dirname(configFile), exist_ok=True)
@@ -95,7 +105,7 @@ logger.info(f"Using config file: {configFile}")
 if os.getenv("DB_PATH"):
     dbPath = os.getenv("DB_PATH")
 else:
-    dbPath = os.path.join(basePath, "evilvir.us", "channels.db")
+    dbPath = os.path.join(log_dir, "channels.db")
 
 logger.info(f"Using database file: {dbPath}")
 
