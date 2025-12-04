@@ -1891,11 +1891,15 @@ def channel(portalId, channelId):
                             moveMac(portalId, mac)
                         break
                     yield chunk
-        except:
+        except Exception:
             pass
         finally:
             unoccupy()
-            ffmpeg_sp.kill()
+            try:
+                if ffmpeg_sp is not None:
+                    ffmpeg_sp.kill()
+            except Exception:
+                pass
         
 
     def testStream():
