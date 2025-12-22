@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+
+{% block title %}XC API Users - MacReplayXC{% endblock %}
+
+{% block head %}
+<style>
+    .user-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+        padding: 20px 0;
+    }
+    
+    .user-card {
+        border: 2px solid;
+        border-radius: 0.5rem;
+        padding: 20px;
+        transition: border-color 0.2s ease;
+        position: relative;
+    }
+    
+    [data-bs-theme="light"] .user-card {
+        border-color: #cbd5e1;
+        background: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .user-card {
+        border-color: #404040;
+        background: #2a2a2a;
+    }
+    
+    .user-card:hover {
+        border-color: #10b981;
+    }
+    
+    .user-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .user-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    [data-bs-theme="light"] .user-avatar {
+        background: #10b981;
+        color: white;
+    }
+    
+    [data-bs-theme="dark"] .user-avatar {
+        background: #10b981;
+        color: white;
+    }
+    
+    .user-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 4px;
+        word-break: break-word;
+    }
+    
+    .user-password {
+        font-family: monospace;
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+    
+    .user-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .user-stat {
+        text-align: center;
+        padding: 8px;
+        border-radius: 0.375rem;
+    }
+    
+    [data-bs-theme="light"] .user-stat {
+        background: #f8fafc;
+    }
+    
+    [data-bs-theme="dark"] .user-stat {
+        background: #1f1f1f;
+    }
+    
+    .user-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .user-stat-label {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        margin-top: 4px;
+    }
+    
+    .user-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+    }
+    
+    .filter-bar {
+        position: sticky;
+        top: 56px;
+        z-index: 100;
+        padding: 15px 0;
+        margin-bottom: 10px;
+    }
+    
+    [data-bs-theme="light"] .filter-bar {
+        background: #f8fafc;
+    }
+    
+    [data-bs-theme="dark"] .filter-bar {
+        background: #1a1a1a;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+    <div class="container-xl">
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <h2 class="page-title">
+                    <i class="ti ti-users me-2"></i>
+                    Xtream Codes API Users
+                </h2>
+                <div class="text-muted mt-1">Manage users who can access streams via XC API</div>
+            </div>
+            <div class="col-auto">
+                <div class="btn-list">
+                    {% if settings.get('xc api enabled') == 'true' %}
+                        <span class="badge bg-success d-flex align-items-center" style="padding: 0.5rem 0.75rem; font-size: 1rem;" title="XC API Enabled">
+                            <i class="ti ti-check"></i>
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger d-flex align-items-center" style="padding: 0.5rem 0.75rem; font-size: 1rem;" title="XC API Disabled">
+                            <i class="ti ti-x"></i>
+                        </span>
+                    {% endif %}
+                    <button class="btn btn-primary" onclick="showAddUserModal()">
+                        <i class="ti ti-plus me-1"></i>
+                        Add User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-body">
+    <div class="container-xl">
+        
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label mb-1">Search Users</label>
+                    <input type="text" class="form-control" id="userSearch" placeholder="Type to filter..." oninput="filterUsers()">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label mb-1">Status Filter</label>
+                    <select class="form-select" id="statusFilter" onchange="filterUsers()">
+                        <option value="">All Users</option>
+                        <option value="active">Active Only</option>
+                        <option value="disabled">Disabled Only</option>
+                        <option value="expired">Expired Only</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="mt-4">
+                        <span class="badge bg-primary-lt me-2">
+                            <i class="ti ti-users me-1"></i>
+                            <span id="totalUsers">0</span> Users
+                        </span>
+                        <span class="badge bg-success-lt">
+                            <i class="ti ti-plug-connected me-1"></i>
+                            <span id="activeConnections">0</span> Active
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Users Grid -->
+        <div id="usersContainer">
+            <div class="user-grid" id="userGrid"></div>
+        </div>
+        
+        <div id="loadingIndicator" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3">Loading users...</p>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">Add User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="userId">
+                <div class="mb-3">
+                    <label class="form-label required">Username</label>
+                    <input type="text" class="form-control" id="username" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label required">Password</label>
+                    <input type="text" class="form-control" id="password" required>
+                    <small class="form-hint">User will use this to authenticate</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Max Connections</label>
+                    <input type="number" class="form-control" id="maxConnections" value="1" min="1" max="10">
+                    <small class="form-hint">Maximum simultaneous devices</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Expires At</label>
+                    <input type="date" class="form-control" id="expiresAt">
+                    <small class="form-hint">Leave empty for no expiration</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Allowed Portals</label>
+                    <select class="form-select" id="allowedPortals" multiple size="5">
+                        <!-- Will be populated dynamically -->
+                    </select>
+                    <small class="form-hint">Leave empty to allow all portals</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="enabled" checked>
+                        <span class="form-check-label">Enabled</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let userModal;
+let allPortals = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    userModal = new bootstrap.Modal(document.getElementById('userModal'));
+    loadUsers();
+    loadPortals();
+});
+
+function loadPortals() {
+    fetch('/portals', {credentials: 'same-origin'})
+        .then(res => res.text())
+        .then(html => {
+            // Parse portals from the response (simplified)
+            // In production, you'd want a dedicated API endpoint
+            allPortals = [];
+        });
+}
+
+function loadUsers() {
+    fetch('/xc-users/list', {credentials: 'same-origin'})
+        .then(res => res.json())
+        .then(data => displayUsers(data.users || []))
+        .catch(err => {
+            console.error('Error:', err);
+            document.getElementById('usersList').innerHTML = 
+                '<div class="alert alert-danger">Error loading users</div>';
+        });
+}
+
+let allUsers = [];
+
+function displayUsers(users) {
+    allUsers = users || [];
+    document.getElementById('loadingIndicator').style.display = 'none';
+    
+    renderUsers();
+    updateStats();
+}
+
+function renderUsers() {
+    const grid = document.getElementById('userGrid');
+    const container = document.getElementById('usersContainer');
+    grid.innerHTML = '';
+    
+    if (!allUsers || allUsers.length === 0) {
+        container.innerHTML = '<div class="empty"><div class="empty-icon"><i class="ti ti-users icon"></i></div><p class="empty-title">No users yet</p><p class="empty-subtitle text-muted">Click "Add User" to create your first XC API user</p></div>';
+        return;
+    }
+    
+    // Apply filters
+    const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    
+    const filteredUsers = allUsers.filter(user => {
+        // Search filter
+        if (searchTerm && !user.username.toLowerCase().includes(searchTerm)) {
+            return false;
+        }
+        
+        // Status filter
+        if (statusFilter === 'active' && !user.enabled) return false;
+        if (statusFilter === 'disabled' && user.enabled) return false;
+        if (statusFilter === 'expired' && (!user.expires_at || new Date(user.expires_at) > new Date())) return false;
+        
+        return true;
+    });
+    
+    if (filteredUsers.length === 0) {
+        container.innerHTML = '<div class="empty"><div class="empty-icon"><i class="ti ti-search icon"></i></div><p class="empty-title">No users found</p><p class="empty-subtitle text-muted">Try adjusting your filters</p></div>';
+        return;
+    }
+    
+    filteredUsers.forEach(user => {
+        const isExpired = user.expires_at && new Date(user.expires_at) < new Date();
+        const statusClass = isExpired ? 'danger' : (user.enabled ? 'success' : 'secondary');
+        const statusText = isExpired ? 'Expired' : (user.enabled ? 'Active' : 'Disabled');
+        const statusIcon = isExpired ? 'alert-circle' : (user.enabled ? 'check' : 'x');
+        
+        const card = document.createElement('div');
+        card.className = 'user-card';
+        
+        card.innerHTML = `
+            <div class="user-header">
+                <div class="user-avatar">
+                    <i class="ti ti-user"></i>
+                </div>
+                <div class="user-info">
+                    <div class="user-name">${escapeHtml(user.username)}</div>
+                    <div class="user-password">${escapeHtml(user.password)}</div>
+                </div>
+                <span class="badge bg-${statusClass}-lt">
+                    <i class="ti ti-${statusIcon} me-1"></i>${statusText}
+                </span>
+            </div>
+            
+            <div class="user-stats">
+                <div class="user-stat">
+                    <div class="user-stat-value text-${user.active_connections > 0 ? 'primary' : 'muted'}">${user.active_connections}/${user.max_connections}</div>
+                    <div class="user-stat-label">Connections</div>
+                </div>
+                <div class="user-stat">
+                    <div class="user-stat-value">${user.expires_at ? formatDate(user.expires_at) : '∞'}</div>
+                    <div class="user-stat-label">Expires</div>
+                </div>
+            </div>
+            
+            <div class="user-actions">
+                <button class="btn btn-success btn-sm" onclick="copyPlaylistUrl('${escapeHtml(user.username)}', '${escapeHtml(user.password)}', this)" title="Copy Playlist URL">
+                    <i class="ti ti-copy me-1"></i>Playlist
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick='editUser(${JSON.stringify(user).replace(/'/g, "&#39;")})'>
+                    <i class="ti ti-edit me-1"></i>Edit
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteUser('${user.id}', '${escapeHtml(user.username)}')">
+                    <i class="ti ti-trash me-1"></i>Delete
+                </button>
+            </div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+function filterUsers() {
+    renderUsers();
+}
+
+function updateStats() {
+    document.getElementById('totalUsers').textContent = allUsers.length;
+    const activeConns = allUsers.reduce((sum, u) => sum + (u.active_connections || 0), 0);
+    document.getElementById('activeConnections').textContent = activeConns;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'Expired';
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays < 7) return `${diffDays}d`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w`;
+    return `${Math.floor(diffDays / 30)}mo`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function copyPlaylistUrl(username, password, btn) {
+    // Generate XC API playlist URL
+    const baseUrl = window.location.origin;
+    const playlistUrl = `${baseUrl}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
+    
+    // Try modern clipboard API first, fallback to legacy method
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(playlistUrl).then(() => {
+            showCopySuccess(btn);
+            showToast('Playlist URL copied to clipboard', 'success');
+        }).catch(err => {
+            console.error('Clipboard API failed:', err);
+            fallbackCopyToClipboard(playlistUrl, btn);
+        });
+    } else {
+        // Fallback for non-HTTPS or older browsers
+        fallbackCopyToClipboard(playlistUrl, btn);
+    }
+}
+
+function fallbackCopyToClipboard(text, btn) {
+    // Create temporary textarea element
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    
+    try {
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+            showCopySuccess(btn);
+            showToast('Playlist URL copied to clipboard', 'success');
+        } else {
+            throw new Error('Copy command failed');
+        }
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        showAlert('Failed to copy to clipboard. Please copy manually: ' + text, 'Copy Failed', 'warning');
+    } finally {
+        document.body.removeChild(textArea);
+    }
+}
+
+function showCopySuccess(btn) {
+    // Visual feedback
+    const originalHtml = btn.innerHTML;
+    const originalClass = btn.className;
+    
+    btn.innerHTML = '<i class="ti ti-check me-1"></i>Copied!';
+    btn.className = 'btn btn-success btn-sm';
+    
+    setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.className = originalClass;
+    }, 2000);
+}
+
+function showAddUserModal() {
+    document.getElementById('userModalTitle').textContent = 'Add User';
+    document.getElementById('userId').value = '';
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    document.getElementById('maxConnections').value = '1';
+    document.getElementById('expiresAt').value = '';
+    document.getElementById('enabled').checked = true;
+    document.getElementById('username').disabled = false;
+    document.getElementById('password').disabled = false;
+    userModal.show();
+}
+
+function editUser(user) {
+    document.getElementById('userModalTitle').textContent = 'Edit User';
+    document.getElementById('userId').value = user.id;
+    document.getElementById('username').value = user.username;
+    document.getElementById('password').value = user.password;
+    document.getElementById('maxConnections').value = user.max_connections;
+    document.getElementById('expiresAt').value = user.expires_at || '';
+    document.getElementById('enabled').checked = user.enabled;
+    document.getElementById('username').disabled = true;
+    document.getElementById('password').disabled = true;
+    userModal.show();
+}
+
+function saveUser() {
+    const userId = document.getElementById('userId').value;
+    const isEdit = userId !== '';
+    
+    const data = {
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        max_connections: parseInt(document.getElementById('maxConnections').value),
+        expires_at: document.getElementById('expiresAt').value,
+        enabled: document.getElementById('enabled').checked,
+        allowed_portals: []
+    };
+    
+    if (isEdit) {
+        data.user_id = userId;
+    }
+    
+    const url = isEdit ? '/xc-users/update' : '/xc-users/add';
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'same-origin',
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            userModal.hide();
+            showToast(isEdit ? 'User updated successfully' : 'User created successfully', 'success');
+            loadUsers();
+        } else {
+            showAlert('Error: ' + (data.error || 'Unknown error'), 'Error', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        showAlert('Error saving user', 'Error', 'danger');
+    });
+}
+
+function deleteUser(userId, username) {
+    showConfirm(`Delete user "${username}"?`, 'Delete User', function() {
+        performDeleteUser(userId);
+    }, null, 'danger');
+}
+
+function performDeleteUser(userId) {
+    fetch('/xc-users/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'same-origin',
+        body: JSON.stringify({user_id: userId})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast('User deleted successfully', 'success');
+            loadUsers();
+        } else {
+            showAlert('Error: ' + (data.error || 'Unknown error'), 'Error', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        showAlert('Error deleting user', 'Error', 'danger');
+    });
+}
+</script>
+{% endblock %}
