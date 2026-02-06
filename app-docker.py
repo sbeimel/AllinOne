@@ -318,17 +318,24 @@ app.wsgi_app = ProxyFix(
 logger.info("ProxyFix middleware enabled for reverse proxy support")
 
 # ============================================
-# Vavoo Blueprint Integration
+# Vavoo Sub-Application Integration
 # ============================================
 try:
-    from vavoo_blueprint import vavoo_blueprint
-    if vavoo_blueprint:
-        app.register_blueprint(vavoo_blueprint)
-        logger.info("✅ Vavoo Blueprint registered successfully at /vavoo")
+    from vavoo_blueprint import vavoo_app
+    from werkzeug.middleware.dispatcher import DispatcherMiddleware
+    
+    if vavoo_app:
+        # Mount Vavoo as sub-application at /vavoo
+        app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+            '/vavoo': vavoo_app
+        })
+        logger.info("✅ Vavoo sub-application mounted successfully at /vavoo")
     else:
-        logger.warning("⚠️ Vavoo Blueprint not available")
+        logger.warning("⚠️ Vavoo application not available")
 except Exception as e:
-    logger.error(f"❌ Failed to register Vavoo Blueprint: {e}")
+    logger.error(f"❌ Failed to mount Vavoo sub-application: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Docker-optimized host configuration
 if os.getenv("HOST"):
@@ -9464,7 +9471,9 @@ def dashboard():
 @app.route("/vavoo_page")
 @authorise
 def vavoo_page():
-    """Vavoo IPTV Proxy page - redirect to Vavoo dashboard."""
+    """Vavoo IPTV Proxy page - redirect to Vavoo sub-application."""
+    # Redirect to Vavoo sub-application
+    # Note: Vavoo has its own session management and login system
     return redirect("/vavoo/", code=302)
 
 @app.route("/streaming")

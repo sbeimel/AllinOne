@@ -7,16 +7,11 @@
 #### `vavoo_blueprint.py`
 - **Zweck**: Konvertiert Vavoo Flask-App in einen Blueprint
 - **Funktion**: Registriert alle Vavoo-Routes unter `/vavoo/*`
-- **Besonderheit**: Wechselt temporär ins vavoo-Verzeichnis für relative Imports
+- **Besonderheit**: Startet Background-Worker automatisch
 
-#### `templates/vavoo.html`
-- **Zweck**: Vavoo-Seite im MacReplayXC-Design
-- **Features**:
-  - Eingebettetes Vavoo-Dashboard (iFrame)
-  - Dark Mode Support
-  - Tabler UI Integration
-  - Info-Cards mit Quick Links
-  - Reload-Button
+#### ~~`templates/vavoo.html`~~ (Gelöscht)
+- **Grund**: Nicht mehr benötigt, direkter Redirect zu Vavoo
+- **Vorteil**: Keine Template-Konflikte, saubere Trennung
 
 #### `VAVOO_INTEGRATION.md`
 - **Zweck**: Vollständige Dokumentation der Integration

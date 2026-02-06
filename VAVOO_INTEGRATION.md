@@ -4,6 +4,18 @@
 
 Vavoo wurde erfolgreich als **Blueprint** in MacReplayXC integriert. Die Vavoo IPTV Proxy-Funktionalität ist jetzt über denselben Port (8001) erreichbar.
 
+## ⚠️ WICHTIG: Session-Authentifizierung Fix (v3.0.1)
+
+**Problem gelöst**: Vavoo-Dashboard wurde nicht korrekt angezeigt (MacReplay Dashboard erschien stattdessen)
+
+**Ursache**: Session-Authentifizierung Konflikt zwischen MacReplayXC (`@authorise`) und Vavoo (`@login_required`)
+
+**Lösung**: 
+1. Auto-Login in `/vavoo_page` Route implementiert
+2. `login_required` Decorator gepatcht für Blueprint-aware Redirects
+
+**Details**: Siehe `VAVOO_FIX_SUMMARY.md`
+
 ## ✅ Was wurde implementiert
 
 ### 1. Blueprint-Integration
@@ -11,6 +23,7 @@ Vavoo wurde erfolgreich als **Blueprint** in MacReplayXC integriert. Die Vavoo I
 - Konvertiert die Vavoo Flask-App in einen Blueprint
 - Alle Vavoo-Routes sind unter `/vavoo/*` verfügbar
 - Vavoo bleibt als separate `vavoo2.py` Datei erhalten
+- **Auto-Login**: Benutzer werden automatisch in Vavoo eingeloggt wenn sie in MacReplayXC authentifiziert sind
 - **Background-Worker werden automatisch gestartet:**
   - Resolution Workers (wenn RES-Mode aktiviert)
   - Refresh Worker (für automatische Playlist-Updates)
@@ -19,7 +32,8 @@ Vavoo wurde erfolgreich als **Blueprint** in MacReplayXC integriert. Die Vavoo I
 ### 2. Web-UI Integration
 - **Neuer Reiter**: "Vavoo" in der Navigation
 - **Direkter Redirect**: Klick auf "Vavoo" leitet direkt zu `/vavoo/` weiter
-- Vavoo hat sein eigenes Dashboard mit eigenem Design
+- **Seamless Authentication**: Keine separate Anmeldung erforderlich
+- Vavoo hat sein eigenes Dashboard mit eigenem Design (lila Gradient)
 - Keine Template-Konflikte, saubere Trennung
 
 ### 3. Route-Struktur
@@ -31,9 +45,12 @@ MacReplayXC (Port 8001)
 ├── /epg                 → EPG Manager
 ├── /vods                → VOD & Series
 ├── /xc-users            → XC API Users
-├── /vavoo_page          → Redirect zu /vavoo/
+├── /vavoo_page          → Auto-Login + Redirect zu /vavoo/
 ├── /vavoo/*             → Alle Vavoo-Routes (Blueprint)
 │   ├── /vavoo/          → Vavoo Dashboard (eigenes Design)
+│   ├── /vavoo/login     → Vavoo Login (falls benötigt)
+│   ├── /vavoo/logout    → Vavoo Logout
+│   ├── /vavoo/config    → Vavoo Konfiguration
 │   ├── /vavoo/health    → Health Check
 │   ├── /vavoo/stats     → Statistics
 │   ├── /vavoo/api/*     → Vavoo API
@@ -46,7 +63,7 @@ MacReplayXC (Port 8001)
 ```
 MacReplayXC/
 ├── app-docker.py                    # Haupt-App (Vavoo Blueprint registriert)
-├── vavoo_blueprint.py               # Blueprint-Wrapper für Vavoo
+├── vavoo_blueprint.py               # Blueprint-Wrapper für Vavoo (mit Auto-Login Fix)
 ├── templates/
 │   └── base.html                    # Navigation mit Vavoo-Link
 └── vavoo/
