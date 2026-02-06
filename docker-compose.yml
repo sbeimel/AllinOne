@@ -16,7 +16,7 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     environment:
-      - HOST=0.0.0.0:8001
+      - HOST=0.0.0.0:8001  # Change to your public URL if needed (e.g., http://your-domain.com:port)
       - CONFIG=/app/data/MacReplayXC.json
       # Python 3.13 Performance Optimizations
       - PYTHONOPTIMIZE=2

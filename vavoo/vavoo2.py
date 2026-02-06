@@ -1,7 +1,10 @@
 #############################################################################################
 
-PORT = 4323
-PUBLIC_HOST = ""
+import os
+
+# Read from environment variables (set by Docker)
+PORT = int(os.getenv("VAVOO_PORT", "4323"))
+PUBLIC_HOST = os.getenv("VAVOO_PUBLIC_HOST", "")
 PLAYLIST_DIR = "/app/data/vavoo_playlists"  # Docker-optimized path
 
 #############################################################################################
@@ -462,7 +465,7 @@ def print_overview_banner():
 
     print(f"{'='*60}")
     print(f"Host: {public_host()}")
-    print(f"Port: {PORT}")
+    print(f"Port: {public_port()}")
     print(f"Refresh Interval: {REFRESH_INTERVAL // 60} minutes")
     print(f"{'='*60}\n")
    
@@ -2022,7 +2025,7 @@ def vavoo():
         else:
             abs_url = urljoin(base, line)
             if mode == "proxy":
-                patched.append(f"http://{host}:{PORT}/segment?u={abs_url}")
+                patched.append(f"http://{host}:{public_port()}/segment?u={abs_url}")
             else:
                 patched.append(abs_url)
 
@@ -2115,11 +2118,11 @@ def vavoo_variant():
 
         if s.startswith(("http://", "https://")):
             patched.append(
-                f"http://{public_host()}:{PORT}/vavoo_variant?u={s}"
+                f"http://{public_host()}:{public_port()}/vavoo_variant?u={s}"
             )
         else:
             patched.append(
-                f"http://{public_host()}:{PORT}/vavoo_variant?u={urljoin(base, s)}"
+                f"http://{public_host()}:{public_port()}/vavoo_variant?u={urljoin(base, s)}"
             )
 
     return Response(
@@ -3350,11 +3353,11 @@ if __name__ == "__main__":
         from waitress import serve
 
         print("🚀 Starting Waitress server (production-ready)...")
-        print(f"📡 Server URL: http://{public_host()}:{PORT}")
+        print(f"📡 Server URL: http://{public_host()}:{public_port()}")
         print("📺 Playlists:")
 
         for _, region in get_locales():
-            print(f"   http://{public_host()}:{PORT}/playlist/{region}.m3u")
+            print(f"   http://{public_host()}:{public_port()}/playlist/{region}.m3u")
 
         if CONFIG.get("RES"):
             print("\n⏳ NOTE: First playlist generation waits for FFmpeg resolution scan")

@@ -59,6 +59,7 @@ RUN useradd -m -u 1000 macreplayxc && \
 #USER macreplay
 
 # Set environment variables for containerized deployment
+# Note: HOST will be overridden by docker-compose.yml with your public URL
 ENV HOST=0.0.0.0:8001
 ENV CONFIG=/app/data/MacReplayXC.json
 ENV PYTHONUNBUFFERED=1

@@ -3,6 +3,22 @@
 
 echo "🚀 Starting MacReplayXC + Vavoo..."
 
+# Extract public host from HOST environment variable
+# HOST format: "http://rico.goip.de:61096" or "0.0.0.0:8001"
+if [ -n "$HOST" ]; then
+    # Remove http:// or https://
+    PUBLIC_HOST_CLEAN=$(echo "$HOST" | sed 's|https\?://||')
+    # Extract hostname (without port)
+    PUBLIC_HOSTNAME=$(echo "$PUBLIC_HOST_CLEAN" | cut -d':' -f1)
+    
+    export VAVOO_PUBLIC_HOST="$PUBLIC_HOSTNAME"
+    export VAVOO_PORT="4323"
+    
+    echo "📡 Vavoo public host: $VAVOO_PUBLIC_HOST:$VAVOO_PORT"
+else
+    echo "⚠️  No HOST environment variable set, using auto-detection"
+fi
+
 # Start Vavoo in background
 echo "📡 Starting Vavoo on port 4323..."
 cd /app/vavoo
