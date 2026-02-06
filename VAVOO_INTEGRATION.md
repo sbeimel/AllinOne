@@ -68,6 +68,22 @@ CONFIG_FILE = "config.json"                  # Vavoo-Config
 MAPPING_FILE = "mapping.json"                # Channel-Mappings
 ```
 
+### Background-Worker (Automatisch gestartet)
+Vavoo startet beim Import automatisch mehrere Background-Prozesse:
+
+1. **Refresh Worker** (Immer aktiv)
+   - Aktualisiert Playlists alle 10 Minuten
+   - Läuft als Daemon-Prozess
+
+2. **Resolution Workers** (Optional, nur wenn RES=true)
+   - FFmpeg-basierte Qualitätserkennung
+   - 4 Worker-Prozesse (CPU-intensiv)
+
+3. **Initial Refresh** (Einmalig beim Start)
+   - Lädt alle konfigurierten Regionen
+
+**Siehe:** `VAVOO_BACKGROUND_WORKERS.md` für Details
+
 ### Volumes (docker-compose.yml)
 ```yaml
 volumes:
