@@ -89,7 +89,7 @@
     <iframe 
         id="vavooFrame" 
         class="vavoo-iframe" 
-        src="http://localhost:4323/"
+        src=""
         style="display: none;"
         title="Vavoo IPTV Proxy"
         sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
@@ -101,6 +101,14 @@
     const loading = document.getElementById('vavooLoading');
     const error = document.getElementById('vavooError');
     let loadTimeout;
+
+    // Dynamically set iframe src based on current host
+    // Replace port 8001 with 4323 for Vavoo
+    const currentUrl = window.location;
+    const vavooUrl = `${currentUrl.protocol}//${currentUrl.hostname}:4323/`;
+    iframe.src = vavooUrl;
+
+    console.log('Loading Vavoo from:', vavooUrl);
 
     // Show error after 10 seconds if not loaded
     loadTimeout = setTimeout(() => {
