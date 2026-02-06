@@ -24,8 +24,8 @@ PLAYLIST_DIR = "/app/data/vavoo_playlists"
 
 ```bash
 # Extract hostname from HOST env var
-# HOST="http://rico.goip.de:61096"
-# → VAVOO_PUBLIC_HOST="rico.goip.de"
+# HOST="http://your-domain.com:8001"
+# → VAVOO_PUBLIC_HOST="your-domain.com"
 # → VAVOO_PORT="4323"
 
 PUBLIC_HOSTNAME=$(echo "$HOST" | sed 's|https\?://||' | cut -d':' -f1)
@@ -47,10 +47,10 @@ HOST="0.0.0.0:8001"
 ### Beispiel 2: Externer Zugriff
 
 ```bash
-HOST="http://rico.goip.de:61096"
-→ VAVOO_PUBLIC_HOST="rico.goip.de"
+HOST="http://your-domain.com:8001"
+→ VAVOO_PUBLIC_HOST="your-domain.com"
 → VAVOO_PORT="4323"
-→ Playlist URLs: http://rico.goip.de:4323/vavoo?...
+→ Playlist URLs: http://your-domain.com:4323/vavoo?...
 ```
 
 ## Deployment
@@ -63,8 +63,8 @@ docker-compose up -d
 
 ## Test
 
-1. Playlist generieren: `http://rico.goip.de:4323/playlist/DE.m3u`
-2. Playlist öffnen → URLs sollten `rico.goip.de:4323` enthalten
+1. Playlist generieren: `http://your-domain.com:4323/playlist/DE.m3u`
+2. Playlist öffnen → URLs sollten `your-domain.com:4323` enthalten
 3. VLC öffnen → Stream sollte funktionieren ✅
 
 ## Vorteile

@@ -2,7 +2,7 @@
 
 ## Problem
 
-Vavoo generiert Playlist-URLs mit der **internen Container-IP** (172.31.200.28:4323), aber VLC braucht die **externe URL** (rico.goip.de:4323).
+Vavoo generiert Playlist-URLs mit der **internen Container-IP** (172.31.200.28:4323), aber VLC braucht die **externe URL** (your-domain.com:4323).
 
 ## Lösung
 
@@ -11,8 +11,8 @@ Vavoo generiert Playlist-URLs mit der **internen Container-IP** (172.31.200.28:4
 `start.sh` extrahiert den Public Host aus der `HOST` Environment-Variable:
 
 ```bash
-# HOST="http://rico.goip.de:61096"
-# → VAVOO_PUBLIC_HOST="rico.goip.de:4323"
+# HOST="http://your-domain.com:8001"
+# → VAVOO_PUBLIC_HOST="your-domain.com:4323"
 ```
 
 ### 2. Vavoo Anpassung (vavoo2.py)
@@ -61,8 +61,8 @@ docker-compose up -d
 
 ## Test
 
-1. Playlist generieren: `http://rico.goip.de:4323/playlist/DE.m3u`
-2. Playlist öffnen → URLs sollten `rico.goip.de:4323` enthalten
+1. Playlist generieren: `http://your-domain.com:4323/playlist/DE.m3u`
+2. Playlist öffnen → URLs sollten `your-domain.com:4323` enthalten
 3. VLC öffnen → Stream sollte funktionieren
 
 ## Manuelle Änderungen nötig

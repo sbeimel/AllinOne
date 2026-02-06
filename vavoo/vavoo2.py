@@ -917,6 +917,10 @@ def public_host():
     if PUBLIC_HOST:
         return PUBLIC_HOST
     return ip()
+
+def public_port():
+    # Return PORT (which is read from environment variable)
+    return PORT
     
 def decode(r):
     if not r or not getattr(r, "content", None):

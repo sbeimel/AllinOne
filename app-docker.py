@@ -5777,7 +5777,7 @@ def _playlist_with_auth(username, password):
     if external_host:
         playlist_host = external_host
     else:
-        # Use the actual request host (e.g., rico.goip.de:61095)
+        # Use the actual request host (e.g., your-domain.com:8001)
         playlist_host = request.host or "0.0.0.0:8001"
     
     channels = []

@@ -4,7 +4,7 @@
 echo "🚀 Starting MacReplayXC + Vavoo..."
 
 # Extract public host from HOST environment variable
-# HOST format: "http://rico.goip.de:61096" or "0.0.0.0:8001"
+# HOST format: "http://your-domain.com:8001" or "0.0.0.0:8001"
 if [ -n "$HOST" ]; then
     # Remove http:// or https://
     PUBLIC_HOST_CLEAN=$(echo "$HOST" | sed 's|https\?://||')
