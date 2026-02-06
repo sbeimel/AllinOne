@@ -1172,12 +1172,17 @@
                 const flagCell = document.getElementById(`flags_${mac.replace(/:/g, '_')}`);
                 if (flagCell && regions.length > 0) {
                     const flags = regions.map(region => {
-                        if (region === 'de') return '🇩🇪';
-                        if (region === 'at') return '🇦🇹';
-                        if (region === 'ch') return '🇨🇭';
+                        const r = region.toLowerCase();
+                        // Nur DACH-Region hervorheben
+                        if (r === 'de' || r === 'ger' || r === 'german' || r === 'deutsch') return '🇩🇪';
+                        if (r === 'at' || r === 'austria' || r === 'österreich') return '🇦🇹';
+                        if (r === 'ch' || r === 'switzerland' || r === 'schweiz') return '🇨🇭';
+                        // Alle anderen Länder: nichts anzeigen
                         return '';
-                    }).join(' ');
-                    flagCell.innerHTML = flags || '<span class="text-muted">-</span>';
+                    }).filter(f => f !== '').join(' ');
+                    
+                    // Wenn keine DACH-Flaggen gefunden: "Int" anzeigen
+                    flagCell.innerHTML = flags || '<span class="text-muted">Int</span>';
                 } else if (flagCell) {
                     flagCell.innerHTML = '<span class="text-muted">-</span>';
                 }
