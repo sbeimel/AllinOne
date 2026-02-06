@@ -38,15 +38,6 @@
             opacity: 0.9;
         }
         
-        .vavoo-iframe {
-            width: 100%;
-            height: calc(100vh - 250px);
-            border: none;
-            border-radius: 12px;
-            background: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
         .info-card {
             background: #2a2a2a;
             border-radius: 8px;
@@ -82,6 +73,17 @@
         .btn-vavoo:hover {
             background: #5568d3;
             transform: translateY(-2px);
+        }
+        
+        .alert-info {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #e5e5e5;
+        }
+        
+        .alert-title {
+            color: #667eea;
+            font-weight: 700;
         }
     </style>
 </head>
@@ -215,21 +217,52 @@
                     </div>
                 </div>
 
-                <!-- Embedded Vavoo Interface -->
+                <!-- Vavoo Dashboard direkt eingebettet -->
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title">Vavoo Control Panel</h3>
                         <div class="card-actions">
-                            <button class="btn btn-primary" onclick="reloadVavoo()">
-                                <i class="ti ti-refresh"></i> Reload
-                            </button>
                             <a href="/vavoo/" target="_blank" class="btn btn-secondary">
                                 <i class="ti ti-external-link"></i> Open in New Tab
                             </a>
                         </div>
                     </div>
-                    <div class="card-body p-0">
-                        <iframe id="vavooFrame" src="/vavoo/" class="vavoo-iframe"></iframe>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <h4 class="alert-title"><i class="ti ti-info-circle"></i> Vavoo Dashboard</h4>
+                            <p class="mb-0">
+                                Das Vavoo-Dashboard öffnet sich in einem neuen Tab. Klicke auf "Open in New Tab" oben rechts.
+                            </p>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <a href="/vavoo/" target="_blank" class="btn btn-primary btn-lg w-100">
+                                    <i class="ti ti-external-link"></i> Vavoo Dashboard öffnen
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h4 class="mb-3">Quick Actions</h4>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <a href="/vavoo/health" target="_blank" class="btn btn-outline-success w-100">
+                                    <i class="ti ti-heart"></i> Health Check
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/vavoo/stats" target="_blank" class="btn btn-outline-info w-100">
+                                    <i class="ti ti-chart-bar"></i> Statistics
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/vavoo/api/status" target="_blank" class="btn btn-outline-primary w-100">
+                                    <i class="ti ti-database"></i> API Status
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -239,17 +272,5 @@
 
     <!-- Tabler JS -->
     <script src="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/js/tabler.min.js"></script>
-    
-    <script>
-        function reloadVavoo() {
-            document.getElementById('vavooFrame').src = document.getElementById('vavooFrame').src;
-        }
-        
-        // Auto-adjust iframe height
-        window.addEventListener('resize', function() {
-            const iframe = document.getElementById('vavooFrame');
-            iframe.style.height = (window.innerHeight - 250) + 'px';
-        });
-    </script>
 </body>
 </html>
