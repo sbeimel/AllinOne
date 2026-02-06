@@ -41,6 +41,13 @@ COPY utils.py .
 COPY templates/ templates/
 COPY static/ static/
 
+# Copy Vavoo files
+COPY vavoo/ vavoo/
+
+# Copy startup script
+COPY start.sh .
+RUN chmod +x start.sh
+
 # Copy documentation files (optional)
 COPY docs/ docs/
 
@@ -60,12 +67,13 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONOPTIMIZE=2
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Expose the application port
+# Expose the application ports
 EXPOSE 8001
+EXPOSE 4323
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/ || exit 1
 
-# Run the application
-CMD ["python", "app.py"] 
+# Run both applications via startup script
+CMD ["./start.sh"] 
