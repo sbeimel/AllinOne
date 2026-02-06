@@ -42,11 +42,14 @@ Thumbs.db
 # Project specific
 *.md
 !README.md
+!VAVOO_INTEGRATION.md
+!VAVOO_CHANGES_SUMMARY.md
 channel_cache_example.py
 INSTALL_PROXY_DEPS.sh
 run_proxy_tests.sh
 shadowsocks_fix.py
 test_*.py
+!test_vavoo_integration.py
 
 # Build artifacts
 build/

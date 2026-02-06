@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create directories for data persistence
-RUN mkdir -p /app/data /app/logs
+RUN mkdir -p /app/data /app/logs /app/data/vavoo_playlists
 
 # Copy Python dependencies file
 COPY requirements.txt .
@@ -40,6 +40,10 @@ COPY stb.py .
 COPY utils.py .
 COPY templates/ templates/
 COPY static/ static/
+
+# Copy Vavoo integration files
+COPY vavoo_blueprint.py .
+COPY vavoo/ vavoo/
 
 # Copy documentation files (optional)
 COPY docs/ docs/
