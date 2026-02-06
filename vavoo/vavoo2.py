@@ -1794,6 +1794,12 @@ def login():
 def logout():
     session.clear()
     return redirect("/login")
+
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    """Serve static files (CSS, JS, images) for MacReplayXC theme integration."""
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    return send_from_directory(static_dir, filename)
     
 @app.route("/api/config", methods=["GET"])
 @login_required
@@ -2715,6 +2721,7 @@ body.hide-tooltips {
 }
 
 </style>
+<link rel="stylesheet" href="/static/macreplay-theme.css">
 </head>
 
 <body>

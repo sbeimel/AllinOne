@@ -283,10 +283,52 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="alert alert-info mt-3 mb-2">
+                        <h6><i class="ti ti-settings me-2"></i>Setup & Konfiguration</h6>
+                        <p><strong>1. Environment Variables (docker-compose.yml):</strong></p>
+                        <ul class="mb-2">
+                            <li><code>HOST</code>: Deine öffentliche URL (z.B. <code>http://your-domain.com:8001</code>)</li>
+                            <li>Vavoo nutzt automatisch <code>VAVOO_PUBLIC_HOST</code> und <code>VAVOO_PORT=4323</code></li>
+                        </ul>
+                        
+                        <p><strong>2. Ports freigeben:</strong></p>
+                        <ul class="mb-2">
+                            <li><code>8001</code>: MacReplayXC Web-Interface</li>
+                            <li><code>4323</code>: Vavoo IPTV Proxy</li>
+                        </ul>
+                        
+                        <p><strong>3. Zugriff auf Vavoo:</strong></p>
+                        <ul class="mb-2">
+                            <li><strong>Web-Interface:</strong> Navigation → Vavoo oder <code>http://your-domain.com:8001/vavoo_page</code></li>
+                            <li><strong>Login:</strong> Nutzt MacReplayXC Login (gleiche Credentials)</li>
+                            <li><strong>Playlists:</strong> <code>http://your-domain.com:4323/playlist/&lt;region&gt;.m3u</code></li>
+                        </ul>
+                        
+                        <p><strong>4. Playlist-URLs:</strong></p>
+                        <ul class="mb-2">
+                            <li><strong>Einzelne Region:</strong> <code>http://your-domain.com:4323/playlist/DE.m3u</code></li>
+                            <li><strong>Mehrere Regionen:</strong> <code>http://your-domain.com:4323/playlist/DE_FR_IT.m3u</code></li>
+                            <li><strong>Verfügbare Regionen:</strong> DE, FR, IT, ES, GB, NL, PL, PT, RO, TR, AL, BG, CR</li>
+                        </ul>
+                        
+                        <p><strong>5. Stream-URLs:</strong></p>
+                        <ul class="mb-0">
+                            <li><strong>Proxy Mode (Internet):</strong> <code>http://your-domain.com:4323/vavoo?channel=&lt;id&gt;&region=DE</code></li>
+                            <li><strong>Direct Mode (LAN):</strong> Direkte vavoo.to URLs (nur im lokalen Netzwerk)</li>
+                            <li><strong>HLS Playlist:</strong> <code>http://your-domain.com:4323/hls/&lt;id&gt;/&lt;region&gt;/playlist.m3u8</code></li>
+                        </ul>
+                    </div>
+                    
                     <div class="alert alert-success mt-2 mb-0">
-                        <strong>Zugriff:</strong> Navigation → Vavoo oder direkt <code>/vavoo_page</code><br>
-                        <strong>Playlists:</strong> <code>/vavoo/playlist/&lt;region&gt;.m3u</code> (z.B. <code>/vavoo/playlist/DE.m3u</code>)<br>
-                        <strong>Kombiniert:</strong> Mehrere Regionen auswählen → <code>/vavoo/playlist/DE_FR_IT.m3u</code>
+                        <h6><i class="ti ti-check me-2"></i>Vorteile der Integration</h6>
+                        <ul class="mb-0">
+                            <li><strong>Single Container:</strong> Alles in einem Docker-Container</li>
+                            <li><strong>Einheitliches Login:</strong> Gleiche Credentials wie MacReplayXC</li>
+                            <li><strong>Tabler Dark Theme:</strong> Passt perfekt zum MacReplayXC Design</li>
+                            <li><strong>Automatischer Start:</strong> Beide Apps starten zusammen via <code>start.sh</code></li>
+                            <li><strong>Shared Environment:</strong> HOST-Variable wird automatisch übernommen</li>
+                        </ul>
                     </div>
                 </div>
 

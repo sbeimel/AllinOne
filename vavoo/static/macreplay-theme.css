@@ -1,0 +1,276 @@
+/*
+ * MacReplayXC Theme for Vavoo
+ * Tabler Dark Theme Colors
+ */
+
+:root {
+    /* Tabler Dark Theme Colors */
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --text-primary: #ffffff;
+    --text-secondary: #b8b8b8;
+    --text-muted: #6c757d;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --accent-primary: #206bc4;
+    --accent-success: #2fb344;
+    --accent-warning: #f76707;
+    --accent-danger: #d63939;
+    --accent-info: #4299e1;
+}
+
+/* Global Overrides */
+body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+.container {
+    background-color: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+}
+
+.subtitle {
+    color: var(--text-secondary) !important;
+}
+
+/* Buttons */
+button, .btn {
+    background-color: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--accent-primary) !important;
+    transition: all 0.2s ease;
+}
+
+button:hover, .btn:hover {
+    background-color: #1a5a9e !important;
+    border-color: #1a5a9e !important;
+}
+
+button.danger, .btn-danger {
+    background-color: var(--accent-danger) !important;
+    border-color: var(--accent-danger) !important;
+}
+
+button.danger:hover, .btn-danger:hover {
+    background-color: #b82e2e !important;
+    border-color: #b82e2e !important;
+}
+
+button.success, .btn-success {
+    background-color: var(--accent-success) !important;
+    border-color: var(--accent-success) !important;
+}
+
+button.success:hover, .btn-success:hover {
+    background-color: #268f37 !important;
+    border-color: #268f37 !important;
+}
+
+button.warning, .btn-warning {
+    background-color: var(--accent-warning) !important;
+    border-color: var(--accent-warning) !important;
+}
+
+button.warning:hover, .btn-warning:hover {
+    background-color: #d65a06 !important;
+    border-color: #d65a06 !important;
+}
+
+/* Forms */
+input, select, textarea {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent-primary) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 0.2rem rgba(32, 107, 196, 0.25) !important;
+}
+
+input::placeholder {
+    color: var(--text-muted) !important;
+}
+
+/* Tables */
+table {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+th {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+td {
+    border-color: var(--border-color) !important;
+}
+
+tr:hover {
+    background-color: var(--bg-tertiary) !important;
+}
+
+/* Status Badges */
+.status {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.status.ok {
+    background-color: rgba(47, 179, 68, 0.2) !important;
+    color: var(--accent-success) !important;
+}
+
+.status.error {
+    background-color: rgba(214, 57, 57, 0.2) !important;
+    color: var(--accent-danger) !important;
+}
+
+.status.warning {
+    background-color: rgba(247, 103, 7, 0.2) !important;
+    color: var(--accent-warning) !important;
+}
+
+/* Cards/Sections */
+.card, .section {
+    background-color: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px;
+}
+
+/* Links */
+a {
+    color: var(--accent-primary) !important;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #4299e1 !important;
+    text-decoration: underline;
+}
+
+/* Code blocks */
+code, pre {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--accent-info) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
+}
+
+/* Tooltips */
+[data-tooltip]::after {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+/* Progress bars */
+progress {
+    background-color: var(--bg-tertiary) !important;
+}
+
+progress::-webkit-progress-bar {
+    background-color: var(--bg-tertiary) !important;
+}
+
+progress::-webkit-progress-value {
+    background-color: var(--accent-primary) !important;
+}
+
+progress::-moz-progress-bar {
+    background-color: var(--accent-primary) !important;
+}
+
+/* Alerts/Messages */
+.alert, .message {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.alert-success {
+    background-color: rgba(47, 179, 68, 0.1) !important;
+    border-color: var(--accent-success) !important;
+}
+
+.alert-danger {
+    background-color: rgba(214, 57, 57, 0.1) !important;
+    border-color: var(--accent-danger) !important;
+}
+
+.alert-warning {
+    background-color: rgba(247, 103, 7, 0.1) !important;
+    border-color: var(--accent-warning) !important;
+}
+
+.alert-info {
+    background-color: rgba(66, 153, 225, 0.1) !important;
+    border-color: var(--accent-info) !important;
+}
+
+/* Modals */
+.modal, .dialog {
+    background-color: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+.modal-overlay {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Dropdown menus */
+.dropdown-menu, select option {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+.dropdown-item:hover {
+    background-color: var(--bg-primary) !important;
+}
+
+/* Checkboxes and Radio buttons */
+input[type="checkbox"], input[type="radio"] {
+    accent-color: var(--accent-primary) !important;
+}
+
+/* Disabled elements */
+button:disabled, input:disabled, select:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+/* Loading spinners */
+.spinner, .loading {
+    border-color: var(--border-color) !important;
+    border-top-color: var(--accent-primary) !important;
+}
