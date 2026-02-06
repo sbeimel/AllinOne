@@ -1,93 +1,66 @@
 # Vavoo Integration for MacReplayXC
-# This file integrates Vavoo as a sub-application using DispatcherMiddleware
+# Starts Vavoo as a separate process on port 4323
 
 import os
 import sys
 import multiprocessing
-import threading
+import subprocess
+import time
+import requests
 
-# Add vavoo directory to path
-vavoo_dir = os.path.join(os.path.dirname(__file__), 'vavoo')
-sys.path.insert(0, vavoo_dir)
+# Vavoo configuration
+VAVOO_PORT = 4323
+VAVOO_DIR = os.path.join(os.path.dirname(__file__), 'vavoo')
+VAVOO_PROCESS = None
 
-# Import and setup Vavoo
-vavoo_app = None
-vavoo_initialized = False
-
-def init_vavoo():
-    """Initialize Vavoo application and workers"""
-    global vavoo_app, vavoo_initialized
-    
-    if vavoo_initialized:
-        return vavoo_app
+def start_vavoo_server():
+    """Start Vavoo server as a separate process"""
+    global VAVOO_PROCESS
     
     try:
+        print("🚀 Starting Vavoo server on port 4323...")
+        
         # Change to vavoo directory
-        original_cwd = os.getcwd()
-        os.chdir(vavoo_dir)
+        os.chdir(VAVOO_DIR)
         
-        # Import vavoo
-        from vavoo2 import (
-            app as vavoo_flask_app,
-            load_config_from_disk,
-            load_mappings,
-            resolution_worker,
-            refresh_worker,
-            request_refresh,
-            CONFIG
+        # Start vavoo2.py as subprocess
+        VAVOO_PROCESS = subprocess.Popen(
+            [sys.executable, 'vavoo2.py'],
+            cwd=VAVOO_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
         )
         
-        # Initialize configuration
-        print("🔧 Initializing Vavoo configuration...")
-        load_config_from_disk()
-        load_mappings()
+        # Wait for server to start
+        max_retries = 30
+        for i in range(max_retries):
+            try:
+                response = requests.get(f'http://localhost:{VAVOO_PORT}/', timeout=1)
+                if response.status_code in [200, 302, 401]:
+                    print(f"✅ Vavoo server started successfully on port {VAVOO_PORT}")
+                    return True
+            except:
+                time.sleep(1)
         
-        # Start background workers
-        print("🚀 Starting Vavoo background workers...")
-        
-        # Create multiprocessing queue for resolution workers
-        RES_QUEUE = multiprocessing.Queue()
-        
-        # Start resolution workers if RES mode is enabled
-        if bool(CONFIG.get("RES", False)):
-            RES_WORKERS = min(4, multiprocessing.cpu_count())
-            for _ in range(RES_WORKERS):
-                p = multiprocessing.Process(
-                    target=resolution_worker,
-                    args=(RES_QUEUE,),
-                    daemon=True
-                )
-                p.start()
-            print(f"✅ {RES_WORKERS} Vavoo resolution workers started")
-        
-        # Start refresh worker
-        refresh_process = multiprocessing.Process(
-            target=refresh_worker,
-            daemon=True
-        )
-        refresh_process.start()
-        print("✅ Vavoo refresh worker started")
-        
-        # Request initial refresh
-        request_refresh("*", rebuild=True)
-        print("✅ Vavoo initial refresh scheduled")
-        
-        # Change back
-        os.chdir(original_cwd)
-        
-        vavoo_app = vavoo_flask_app
-        vavoo_initialized = True
-        print("✅ Vavoo application initialized successfully")
-        
-        return vavoo_app
+        print(f"⚠️ Vavoo server may not have started properly")
+        return False
         
     except Exception as e:
-        print(f"❌ Error initializing Vavoo: {e}")
+        print(f"❌ Error starting Vavoo server: {e}")
         import traceback
         traceback.print_exc()
-        os.chdir(original_cwd)
-        return None
+        return False
 
-# Initialize Vavoo on import
-vavoo_app = init_vavoo()
+def stop_vavoo_server():
+    """Stop Vavoo server"""
+    global VAVOO_PROCESS
+    if VAVOO_PROCESS:
+        print("🛑 Stopping Vavoo server...")
+        VAVOO_PROCESS.terminate()
+        VAVOO_PROCESS.wait()
+        print("✅ Vavoo server stopped")
+
+# Start Vavoo server on import
+vavoo_started = start_vavoo_server()
+
 
