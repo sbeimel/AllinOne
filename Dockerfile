@@ -41,10 +41,6 @@ COPY utils.py .
 COPY templates/ templates/
 COPY static/ static/
 
-# Copy Vavoo integration files
-COPY vavoo_blueprint.py .
-COPY vavoo/ vavoo/
-
 # Copy documentation files (optional)
 COPY docs/ docs/
 

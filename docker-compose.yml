@@ -33,3 +33,38 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - macreplay_network
+
+  vavoo:
+    build:
+      context: .
+      dockerfile: Dockerfile.vavoo
+    image: vavoo:latest
+    container_name: Vavoo
+    ports:
+      - "4323:4323"
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+    volumes:
+      - ./data/vavoo_playlists:/app/data/vavoo_playlists
+      - ./vavoo:/app/vavoo
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    working_dir: /app/vavoo
+    command: python vavoo2.py
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - macreplay_network
+
+networks:
+  macreplay_network:
+    driver: bridge
+
+

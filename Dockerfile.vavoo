@@ -1,0 +1,30 @@
+# Vavoo IPTV Proxy - Standalone Container
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    flask \
+    requests \
+    werkzeug
+
+# Copy Vavoo files
+COPY vavoo /app/vavoo
+
+# Create data directory
+RUN mkdir -p /app/data/vavoo_playlists
+
+# Expose Vavoo port
+EXPOSE 4323
+
+# Set working directory to vavoo
+WORKDIR /app/vavoo
+
+# Run Vavoo
+CMD ["python", "vavoo2.py"]

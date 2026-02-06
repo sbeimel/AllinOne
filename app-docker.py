@@ -318,19 +318,11 @@ app.wsgi_app = ProxyFix(
 logger.info("ProxyFix middleware enabled for reverse proxy support")
 
 # ============================================
-# Vavoo Integration (Separate Process + Proxy)
+# Vavoo Integration (Separate Container)
 # ============================================
-try:
-    from vavoo_blueprint import vavoo_started, VAVOO_PORT
-    
-    if vavoo_started:
-        logger.info(f"✅ Vavoo server running on port {VAVOO_PORT}")
-    else:
-        logger.warning("⚠️ Vavoo server may not have started properly")
-except Exception as e:
-    logger.error(f"❌ Failed to start Vavoo server: {e}")
-    import traceback
-    traceback.print_exc()
+# Vavoo runs as separate Docker container on port 4323
+# Accessible via iframe in /vavoo_page route
+logger.info("Vavoo runs as separate container (vavoo:4323)")
 
 # Docker-optimized host configuration
 if os.getenv("HOST"):
