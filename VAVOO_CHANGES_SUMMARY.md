@@ -112,19 +112,17 @@ MacReplayXC Flask App (Port 8001)
 
 ### Dateifluss
 ```
-Browser Request: /vavoo_page
+Browser Request: Klick auf "Vavoo" in Navigation
     ↓
 app-docker.py: @app.route("/vavoo_page")
     ↓
-templates/vavoo.html (mit iFrame)
-    ↓
-iFrame lädt: /vavoo/
+redirect("/vavoo/", code=302)
     ↓
 vavoo_blueprint.py: Blueprint Route
     ↓
 vavoo/vavoo2.py: Original Vavoo App
     ↓
-Vavoo Dashboard angezeigt
+Vavoo Dashboard angezeigt (eigenes Design)
 ```
 
 ## 📊 Vorteile der Integration

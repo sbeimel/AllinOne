@@ -9464,8 +9464,8 @@ def dashboard():
 @app.route("/vavoo_page")
 @authorise
 def vavoo_page():
-    """Vavoo IPTV Proxy page."""
-    return render_template("vavoo.html")
+    """Vavoo IPTV Proxy page - redirect to Vavoo dashboard."""
+    return redirect("/vavoo/", code=302)
 
 @app.route("/streaming")
 @authorise

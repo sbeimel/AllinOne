@@ -18,9 +18,9 @@ Vavoo wurde erfolgreich als **Blueprint** in MacReplayXC integriert. Die Vavoo I
 
 ### 2. Web-UI Integration
 - **Neuer Reiter**: "Vavoo" in der Navigation
-- **Template**: `templates/vavoo.html`
-- Eingebettetes Vavoo-Dashboard via iFrame
-- Optisch an MacReplayXC angepasst (Dark Mode, Tabler UI)
+- **Direkter Redirect**: Klick auf "Vavoo" leitet direkt zu `/vavoo/` weiter
+- Vavoo hat sein eigenes Dashboard mit eigenem Design
+- Keine Template-Konflikte, saubere Trennung
 
 ### 3. Route-Struktur
 ```
@@ -31,10 +31,9 @@ MacReplayXC (Port 8001)
 ├── /epg                 → EPG Manager
 ├── /vods                → VOD & Series
 ├── /xc-users            → XC API Users
-├── /vavoo_page          → Vavoo UI (Wrapper)
-│   └── iFrame → /vavoo/ (Vavoo Dashboard)
-├── /vavoo/*             → Alle Vavoo-Routes
-│   ├── /vavoo/          → Vavoo Dashboard
+├── /vavoo_page          → Redirect zu /vavoo/
+├── /vavoo/*             → Alle Vavoo-Routes (Blueprint)
+│   ├── /vavoo/          → Vavoo Dashboard (eigenes Design)
 │   ├── /vavoo/health    → Health Check
 │   ├── /vavoo/stats     → Statistics
 │   ├── /vavoo/api/*     → Vavoo API
@@ -49,8 +48,7 @@ MacReplayXC/
 ├── app-docker.py                    # Haupt-App (Vavoo Blueprint registriert)
 ├── vavoo_blueprint.py               # Blueprint-Wrapper für Vavoo
 ├── templates/
-│   ├── base.html                    # Navigation mit Vavoo-Link
-│   └── vavoo.html                   # Vavoo-Seite (iFrame)
+│   └── base.html                    # Navigation mit Vavoo-Link
 └── vavoo/
     ├── vavoo2.py                    # Original Vavoo-App
     ├── mapping.json                 # Channel-Mappings
@@ -94,8 +92,9 @@ volumes:
 ## 🎯 Verwendung
 
 ### 1. Vavoo-Dashboard öffnen
-- Navigiere zu **Vavoo** in der Menüleiste
-- Oder direkt: `http://localhost:8001/vavoo_page`
+- Klicke auf **Vavoo** in der Menüleiste
+- Oder direkt: `http://localhost:8001/vavoo/`
+- Beim ersten Zugriff: Login erstellen (Username/Password)
 
 ### 2. Region hinzufügen
 1. Im Vavoo-Dashboard: Region auswählen (z.B. Germany)
