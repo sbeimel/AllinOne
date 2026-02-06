@@ -11,6 +11,10 @@ Vavoo wurde erfolgreich als **Blueprint** in MacReplayXC integriert. Die Vavoo I
 - Konvertiert die Vavoo Flask-App in einen Blueprint
 - Alle Vavoo-Routes sind unter `/vavoo/*` verfügbar
 - Vavoo bleibt als separate `vavoo2.py` Datei erhalten
+- **Background-Worker werden automatisch gestartet:**
+  - Resolution Workers (wenn RES-Mode aktiviert)
+  - Refresh Worker (für automatische Playlist-Updates)
+  - Initial Refresh (lädt alle konfigurierten Regionen)
 
 ### 2. Web-UI Integration
 - **Neuer Reiter**: "Vavoo" in der Navigation
