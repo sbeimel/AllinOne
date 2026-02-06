@@ -353,32 +353,31 @@
 
                 <div class="mb-4">
                     <h5><span class="badge bg-primary me-2">5</span>MAC-Regionen-Erkennung</h5>
-                    <p><strong>Automatische Flaggen-Anzeige basierend auf Genre-Namen:</strong></p>
-                    <div class="row g-2 text-center">
-                        <div class="col-md-4">
-                            <div class="border rounded p-2">
-                                <div style="font-size: 2em;">🇩🇪</div>
-                                <strong>Deutschland</strong><br>
-                                <small>DE, GER, GERMAN, DEUTSCH</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="border rounded p-2">
-                                <div style="font-size: 2em;">🇦🇹</div>
-                                <strong>Österreich</strong><br>
-                                <small>AT, AUSTRIA, ÖSTERREICH</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="border rounded p-2">
-                                <div style="font-size: 2em;">🇨🇭</div>
-                                <strong>Schweiz</strong><br>
-                                <small>CH, SWITZERLAND, SCHWEIZ</small>
+                    <p><strong>Automatische DE-Erkennung basierend auf Genre-Namen:</strong></p>
+                    <div class="row g-2">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-auto">
+                                            <span style="font-size: 3em;">✓</span>
+                                        </div>
+                                        <div class="col">
+                                            <h6 class="mb-2">Deutsche Inhalte erkannt</h6>
+                                            <p class="text-muted mb-0">
+                                                Wenn Genre-Namen Keywords wie <strong>DE</strong>, <strong>GER</strong>, <strong>GERMAN</strong>, 
+                                                <strong>DEUTSCH</strong>, <strong>GERMANY</strong> oder <strong>ALLEMAGNE</strong> enthalten, 
+                                                wird ein grüner Haken in der Spalte "DE ?" angezeigt.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="alert alert-info mt-2 mb-0">
-                        <strong>Anzeige:</strong> Portals → Edit Portal → Current MACs → Spalte "Regions"
+                        <strong>Anzeige:</strong> Portals → Edit Portal → Current MACs → Spalte "DE ?"<br>
+                        <strong>Hinweis:</strong> AT und CH werden nicht mehr separat angezeigt - nur DE-Erkennung
                     </div>
                 </div>
 
@@ -387,78 +386,84 @@
                 <div class="mb-4">
                     <h5><span class="badge bg-primary me-2">6</span>Vavoo IPTV Proxy Integration</h5>
                     <p><strong>Vavoo als integrierter IPTV Proxy für zusätzliche Streams:</strong></p>
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <div class="border rounded p-2">
-                                <strong>Multi-Region Support</strong><br>
-                                <small>DE, FR, IT, ES, GB, NL, PL, PT, RO, TR, AL, BG und mehr</small>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <i class="ti ti-world icon text-primary mb-2" style="font-size: 2em;"></i>
+                                    <h6 class="mb-1">Multi-Region</h6>
+                                    <small class="text-muted">DE, FR, IT, ES, GB, NL, PL, PT, RO, TR, AL, BG, CR</small>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="border rounded p-2">
-                                <strong>Resolution Scanning</strong><br>
-                                <small>FFmpeg-basierte Qualitätserkennung (1080p50, 720p50, etc.)</small>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <i class="ti ti-device-tv icon text-success mb-2" style="font-size: 2em;"></i>
+                                    <h6 class="mb-1">Resolution Scan</h6>
+                                    <small class="text-muted">FFmpeg-basierte Qualitätserkennung</small>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="border rounded p-2">
-                                <strong>Streaming Modes</strong><br>
-                                <small>Proxy (Internet) oder Direct (LAN only)</small>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <i class="ti ti-network icon text-info mb-2" style="font-size: 2em;"></i>
+                                    <h6 class="mb-1">Streaming Modes</h6>
+                                    <small class="text-muted">Proxy (Internet) oder Direct (LAN)</small>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="border rounded p-2">
-                                <strong>Channel Filtering</strong><br>
-                                <small>Keyword-basierte Filterung (z.B. nur Bundesliga)</small>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <i class="ti ti-filter icon text-warning mb-2" style="font-size: 2em;"></i>
+                                    <h6 class="mb-1">Channel Filter</h6>
+                                    <small class="text-muted">Keyword-basierte Filterung</small>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="alert alert-info mt-3 mb-2">
-                        <h6><i class="ti ti-settings me-2"></i>Setup & Konfiguration</h6>
-                        <p><strong>1. Environment Variables (docker-compose.yml):</strong></p>
-                        <ul class="mb-2">
-                            <li><code>HOST</code>: Deine öffentliche URL (z.B. <code>http://your-domain.com:8001</code>)</li>
-                            <li>Vavoo nutzt automatisch <code>VAVOO_PUBLIC_HOST</code> und <code>VAVOO_PORT=4323</code></li>
-                        </ul>
-                        
-                        <p><strong>2. Ports freigeben:</strong></p>
-                        <ul class="mb-2">
-                            <li><code>8001</code>: MacReplayXC Web-Interface</li>
-                            <li><code>4323</code>: Vavoo IPTV Proxy</li>
-                        </ul>
-                        
-                        <p><strong>3. Zugriff auf Vavoo:</strong></p>
-                        <ul class="mb-2">
-                            <li><strong>Web-Interface:</strong> Navigation → Vavoo oder <code>http://your-domain.com:8001/vavoo_page</code></li>
-                            <li><strong>Login:</strong> Nutzt MacReplayXC Login (gleiche Credentials)</li>
-                            <li><strong>Playlists:</strong> <code>http://your-domain.com:4323/playlist/&lt;region&gt;.m3u</code></li>
-                        </ul>
-                        
-                        <p><strong>4. Playlist-URLs:</strong></p>
-                        <ul class="mb-2">
-                            <li><strong>Einzelne Region:</strong> <code>http://your-domain.com:4323/playlist/DE.m3u</code></li>
-                            <li><strong>Mehrere Regionen:</strong> <code>http://your-domain.com:4323/playlist/DE_FR_IT.m3u</code></li>
-                            <li><strong>Verfügbare Regionen:</strong> DE, FR, IT, ES, GB, NL, PL, PT, RO, TR, AL, BG, CR</li>
-                        </ul>
-                        
-                        <p><strong>5. Stream-URLs:</strong></p>
-                        <ul class="mb-0">
-                            <li><strong>Proxy Mode (Internet):</strong> <code>http://your-domain.com:4323/vavoo?channel=&lt;id&gt;&region=DE</code></li>
-                            <li><strong>Direct Mode (LAN):</strong> Direkte vavoo.to URLs (nur im lokalen Netzwerk)</li>
-                            <li><strong>HLS Playlist:</strong> <code>http://your-domain.com:4323/hls/&lt;id&gt;/&lt;region&gt;/playlist.m3u8</code></li>
-                        </ul>
+                    <div class="alert alert-info mb-3">
+                        <h6 class="alert-heading"><i class="ti ti-info-circle me-2"></i>Quick Start</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-2"><strong>1. Zugriff:</strong></p>
+                                <ul class="mb-3">
+                                    <li>Navigation → Vavoo Tab</li>
+                                    <li>Oder direkt: <code>/vavoo_page</code></li>
+                                    <li>Login: Gleiche Credentials wie MacReplayXC</li>
+                                </ul>
+                                
+                                <p class="mb-2"><strong>2. Playlists:</strong></p>
+                                <ul class="mb-0">
+                                    <li>Einzeln: <code>http://host:4323/playlist/DE.m3u</code></li>
+                                    <li>Kombiniert: <code>http://host:4323/playlist/DE_FR_IT.m3u</code></li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2"><strong>3. Konfiguration:</strong></p>
+                                <ul class="mb-3">
+                                    <li><code>HOST</code> ENV: Deine öffentliche URL</li>
+                                    <li>Port 4323 freigeben (docker-compose.yml)</li>
+                                    <li>Automatischer Start via <code>start.sh</code></li>
+                                </ul>
+                                
+                                <p class="mb-2"><strong>4. Vorteile:</strong></p>
+                                <ul class="mb-0">
+                                    <li>Single Container (alles in einem)</li>
+                                    <li>Tabler Dark Theme (passt perfekt)</li>
+                                    <li>Shared Environment (HOST-Variable)</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="alert alert-success mt-2 mb-0">
-                        <h6><i class="ti ti-check me-2"></i>Vorteile der Integration</h6>
-                        <ul class="mb-0">
-                            <li><strong>Single Container:</strong> Alles in einem Docker-Container</li>
-                            <li><strong>Einheitliches Login:</strong> Gleiche Credentials wie MacReplayXC</li>
-                            <li><strong>Tabler Dark Theme:</strong> Passt perfekt zum MacReplayXC Design</li>
-                            <li><strong>Automatischer Start:</strong> Beide Apps starten zusammen via <code>start.sh</code></li>
-                            <li><strong>Shared Environment:</strong> HOST-Variable wird automatisch übernommen</li>
-                        </ul>
+                    <div class="alert alert-success mb-0">
+                        <strong><i class="ti ti-check me-2"></i>Dokumentation:</strong> 
+                        Detaillierte Setup-Anleitung in <code>docs/vavoo/QUICKSTART.md</code>
                     </div>
                 </div>
 

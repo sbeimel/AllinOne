@@ -543,7 +543,7 @@
                                                 <thead>
                                                     <tr>
                                                         <th>MAC</th>
-                                                        <th>Regions</th>
+                                                        <th>DE ?</th>
                                                         <th>Expires</th>
                                                         <th>Status</th>
                                                         <th>Activity</th>
@@ -1167,24 +1167,24 @@
         .then(data => {
             const macRegions = data.mac_regions || {};
             
-            // Update each row with flags
+            // Update each row with DE check (green checkmark if DE content found)
             for (const [mac, regions] of Object.entries(macRegions)) {
                 const flagCell = document.getElementById(`flags_${mac.replace(/:/g, '_')}`);
-                if (flagCell && regions.length > 0) {
-                    const flags = regions.map(region => {
-                        const r = region.toLowerCase();
-                        // Nur DACH-Region hervorheben
-                        if (r === 'de' || r === 'ger' || r === 'german' || r === 'deutsch') return '🇩🇪';
-                        if (r === 'at' || r === 'austria' || r === 'österreich') return '🇦🇹';
-                        if (r === 'ch' || r === 'switzerland' || r === 'schweiz') return '🇨🇭';
-                        // Alle anderen Länder: nichts anzeigen
-                        return '';
-                    }).filter(f => f !== '').join(' ');
+                if (flagCell && regions && regions.length > 0) {
+                    // Nur prüfen ob DE vorhanden ist
+                    const hasDE = regions.some(region => {
+                        const r = String(region).toLowerCase().trim();
+                        return r === 'de' || r === 'ger' || r === 'german' || r === 'deutsch' || r === 'germany' || r === 'allemagne';
+                    });
                     
-                    // Wenn keine DACH-Flaggen gefunden: "Int" anzeigen
-                    flagCell.innerHTML = flags || '<span class="text-muted">Int</span>';
+                    // Grüner Haken wenn DE gefunden, sonst leer
+                    if (hasDE) {
+                        flagCell.innerHTML = '<span class="text-success">✓</span>';
+                    } else {
+                        flagCell.innerHTML = '';
+                    }
                 } else if (flagCell) {
-                    flagCell.innerHTML = '<span class="text-muted">-</span>';
+                    flagCell.innerHTML = '';
                 }
             }
         })
