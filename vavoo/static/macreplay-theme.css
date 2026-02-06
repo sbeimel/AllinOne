@@ -186,37 +186,55 @@ table *, th *, td * {
 }
 
 /* Status Badges */
-.status {
+.status,
+span[class*="status"],
+div[class*="status"] {
     padding: 4px 12px;
     border-radius: 4px;
     font-weight: 500;
 }
 
-.status.ok {
+.status.ok,
+.status-ok,
+[class*="status"][class*="ok"] {
     background-color: rgba(47, 179, 68, 0.2) !important;
-    color: var(--accent-success) !important;
+    background: rgba(47, 179, 68, 0.2) !important;
+    color: #2fb344 !important;
 }
 
-.status.error {
+.status.error,
+.status-error,
+[class*="status"][class*="error"] {
     background-color: rgba(214, 57, 57, 0.2) !important;
-    color: var(--accent-danger) !important;
+    background: rgba(214, 57, 57, 0.2) !important;
+    color: #d63939 !important;
 }
 
-.status.warning {
+.status.warning,
+.status-warning,
+[class*="status"][class*="warning"] {
     background-color: rgba(247, 103, 7, 0.2) !important;
-    color: var(--accent-warning) !important;
+    background: rgba(247, 103, 7, 0.2) !important;
+    color: #f76707 !important;
 }
 
 /* Cards/Sections */
-.card, .section {
-    background-color: var(--bg-secondary) !important;
-    border: 1px solid var(--border-color) !important;
+.card, .section,
+div[class*="card"],
+div[class*="section"] {
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 8px;
+}
+
+.card *, .section * {
+    color: #ffffff !important;
 }
 
 /* Links */
 a {
-    color: var(--accent-primary) !important;
+    color: #206bc4 !important;
     text-decoration: none;
 }
 
@@ -227,9 +245,10 @@ a:hover {
 
 /* Code blocks */
 code, pre {
-    background-color: var(--bg-tertiary) !important;
-    color: var(--accent-info) !important;
-    border: 1px solid var(--border-color) !important;
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #4299e1 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Scrollbar */
@@ -239,11 +258,11 @@ code, pre {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-primary);
+    background: #0a0a0a;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
+    background: #2a2a2a;
     border-radius: 6px;
 }
 
@@ -253,26 +272,31 @@ code, pre {
 
 /* Tooltips */
 [data-tooltip]::after {
-    background-color: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color) !important;
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Progress bars */
 progress {
-    background-color: var(--bg-tertiary) !important;
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
 }
 
 progress::-webkit-progress-bar {
-    background-color: var(--bg-tertiary) !important;
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
 }
 
 progress::-webkit-progress-value {
-    background-color: var(--accent-primary) !important;
+    background-color: #206bc4 !important;
+    background: #206bc4 !important;
 }
 
 progress::-moz-progress-bar {
-    background-color: var(--accent-primary) !important;
+    background-color: #206bc4 !important;
+    background: #206bc4 !important;
 }
 
 /* Alerts/Messages */
