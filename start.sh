@@ -16,7 +16,7 @@ sleep 2
 # Start MacReplayXC in foreground
 echo "🎬 Starting MacReplayXC on port 8001..."
 cd /app
-python app-docker.py
+python app.py
 
 # If MacReplayXC exits, kill Vavoo too
 kill $VAVOO_PID 2>/dev/null
