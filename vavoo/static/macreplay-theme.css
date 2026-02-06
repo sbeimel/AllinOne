@@ -1,123 +1,188 @@
 /*
  * MacReplayXC Theme for Vavoo
- * Tabler Dark Theme Colors
+ * Tabler Dark Theme Colors - AGGRESSIVE OVERRIDE
  */
 
-:root {
-    /* Tabler Dark Theme Colors */
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #1a1a1a;
-    --bg-tertiary: #2a2a2a;
-    --text-primary: #ffffff;
-    --text-secondary: #b8b8b8;
-    --text-muted: #6c757d;
-    --border-color: rgba(255, 255, 255, 0.1);
-    --accent-primary: #206bc4;
-    --accent-success: #2fb344;
-    --accent-warning: #f76707;
-    --accent-danger: #d63939;
-    --accent-info: #4299e1;
+/* Global Overrides - FORCE DARK THEME */
+* {
+    color-scheme: dark !important;
 }
 
-/* Global Overrides */
+html {
+    background-color: #0a0a0a !important;
+}
+
 body {
-    background-color: var(--bg-primary) !important;
-    color: var(--text-primary) !important;
+    background-color: #0a0a0a !important;
+    background: #0a0a0a !important;
+    color: #ffffff !important;
 }
 
-.container {
-    background-color: var(--bg-secondary) !important;
-    border: 1px solid var(--border-color) !important;
+body * {
+    color: #ffffff !important;
+}
+
+.container,
+div[class*="container"] {
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Headers */
-h1, h2, h3, h4, h5, h6 {
-    color: var(--text-primary) !important;
+h1, h2, h3, h4, h5, h6,
+h1 *, h2 *, h3 *, h4 *, h5 *, h6 * {
+    color: #ffffff !important;
 }
 
-.subtitle {
-    color: var(--text-secondary) !important;
+.subtitle,
+p, span, div, label {
+    color: #b8b8b8 !important;
+}
+
+/* Remove purple/lilac backgrounds */
+div, section, article, main, aside, header, footer, nav {
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+}
+
+/* White boxes with white text fix */
+div[style*="background"],
+div[style*="background-color"] {
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+}
+
+div[style*="background: white"],
+div[style*="background-color: white"],
+div[style*="background:#fff"],
+div[style*="background-color:#fff"] {
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
 }
 
 /* Buttons */
-button, .btn {
-    background-color: var(--accent-primary) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--accent-primary) !important;
+button, .btn,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+    background-color: #206bc4 !important;
+    background: #206bc4 !important;
+    color: #ffffff !important;
+    border: 1px solid #206bc4 !important;
     transition: all 0.2s ease;
 }
 
-button:hover, .btn:hover {
+button:hover, .btn:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover {
     background-color: #1a5a9e !important;
+    background: #1a5a9e !important;
     border-color: #1a5a9e !important;
 }
 
-button.danger, .btn-danger {
-    background-color: var(--accent-danger) !important;
-    border-color: var(--accent-danger) !important;
+button.danger, .btn-danger,
+button[class*="danger"] {
+    background-color: #d63939 !important;
+    background: #d63939 !important;
+    border-color: #d63939 !important;
 }
 
 button.danger:hover, .btn-danger:hover {
     background-color: #b82e2e !important;
+    background: #b82e2e !important;
     border-color: #b82e2e !important;
 }
 
-button.success, .btn-success {
-    background-color: var(--accent-success) !important;
-    border-color: var(--accent-success) !important;
+button.success, .btn-success,
+button[class*="success"] {
+    background-color: #2fb344 !important;
+    background: #2fb344 !important;
+    border-color: #2fb344 !important;
 }
 
 button.success:hover, .btn-success:hover {
     background-color: #268f37 !important;
+    background: #268f37 !important;
     border-color: #268f37 !important;
 }
 
-button.warning, .btn-warning {
-    background-color: var(--accent-warning) !important;
-    border-color: var(--accent-warning) !important;
+button.warning, .btn-warning,
+button[class*="warning"] {
+    background-color: #f76707 !important;
+    background: #f76707 !important;
+    border-color: #f76707 !important;
 }
 
 button.warning:hover, .btn-warning:hover {
     background-color: #d65a06 !important;
+    background: #d65a06 !important;
     border-color: #d65a06 !important;
 }
 
 /* Forms */
-input, select, textarea {
-    background-color: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color) !important;
+input, select, textarea,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"] {
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 input:focus, select:focus, textarea:focus {
-    border-color: var(--accent-primary) !important;
+    border-color: #206bc4 !important;
     outline: none !important;
     box-shadow: 0 0 0 0.2rem rgba(32, 107, 196, 0.25) !important;
 }
 
-input::placeholder {
-    color: var(--text-muted) !important;
+input::placeholder,
+textarea::placeholder {
+    color: #6c757d !important;
+    opacity: 1 !important;
+}
+
+/* Labels */
+label {
+    color: #b8b8b8 !important;
 }
 
 /* Tables */
 table {
-    background-color: var(--bg-secondary) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border-color) !important;
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 th {
-    background-color: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border-color) !important;
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 td {
-    border-color: var(--border-color) !important;
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-tr:hover {
-    background-color: var(--bg-tertiary) !important;
+tr:hover td {
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+}
+
+/* Table text color fix */
+table *, th *, td * {
+    color: #ffffff !important;
 }
 
 /* Status Badges */
