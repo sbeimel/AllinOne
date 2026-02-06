@@ -300,56 +300,78 @@ progress::-moz-progress-bar {
 }
 
 /* Alerts/Messages */
-.alert, .message {
-    background-color: var(--bg-tertiary) !important;
-    border: 1px solid var(--border-color) !important;
-    color: var(--text-primary) !important;
+.alert, .message,
+div[class*="alert"],
+div[class*="message"] {
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
 }
 
-.alert-success {
+.alert-success,
+[class*="alert"][class*="success"] {
     background-color: rgba(47, 179, 68, 0.1) !important;
-    border-color: var(--accent-success) !important;
+    background: rgba(47, 179, 68, 0.1) !important;
+    border-color: #2fb344 !important;
+    color: #2fb344 !important;
 }
 
-.alert-danger {
+.alert-danger,
+[class*="alert"][class*="danger"],
+[class*="alert"][class*="error"] {
     background-color: rgba(214, 57, 57, 0.1) !important;
-    border-color: var(--accent-danger) !important;
+    background: rgba(214, 57, 57, 0.1) !important;
+    border-color: #d63939 !important;
+    color: #d63939 !important;
 }
 
-.alert-warning {
+.alert-warning,
+[class*="alert"][class*="warning"] {
     background-color: rgba(247, 103, 7, 0.1) !important;
-    border-color: var(--accent-warning) !important;
+    background: rgba(247, 103, 7, 0.1) !important;
+    border-color: #f76707 !important;
+    color: #f76707 !important;
 }
 
-.alert-info {
+.alert-info,
+[class*="alert"][class*="info"] {
     background-color: rgba(66, 153, 225, 0.1) !important;
-    border-color: var(--accent-info) !important;
+    background: rgba(66, 153, 225, 0.1) !important;
+    border-color: #4299e1 !important;
+    color: #4299e1 !important;
 }
 
 /* Modals */
-.modal, .dialog {
-    background-color: var(--bg-secondary) !important;
-    border: 1px solid var(--border-color) !important;
+.modal, .dialog,
+div[class*="modal"],
+div[class*="dialog"] {
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .modal-overlay {
     background-color: rgba(0, 0, 0, 0.7) !important;
+    background: rgba(0, 0, 0, 0.7) !important;
 }
 
 /* Dropdown menus */
 .dropdown-menu, select option {
-    background-color: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color) !important;
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .dropdown-item:hover {
-    background-color: var(--bg-primary) !important;
+    background-color: #0a0a0a !important;
+    background: #0a0a0a !important;
 }
 
 /* Checkboxes and Radio buttons */
 input[type="checkbox"], input[type="radio"] {
-    accent-color: var(--accent-primary) !important;
+    accent-color: #206bc4 !important;
 }
 
 /* Disabled elements */
@@ -360,6 +382,46 @@ button:disabled, input:disabled, select:disabled {
 
 /* Loading spinners */
 .spinner, .loading {
-    border-color: var(--border-color) !important;
-    border-top-color: var(--accent-primary) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    border-top-color: #206bc4 !important;
+}
+
+/* Fix for inline styles - NUCLEAR OPTION */
+[style*="background: white"],
+[style*="background:white"],
+[style*="background-color: white"],
+[style*="background-color:white"],
+[style*="background: #fff"],
+[style*="background:#fff"],
+[style*="background-color: #fff"],
+[style*="background-color:#fff"],
+[style*="background: #ffffff"],
+[style*="background:#ffffff"],
+[style*="background-color: #ffffff"],
+[style*="background-color:#ffffff"] {
+    background-color: #2a2a2a !important;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+}
+
+[style*="color: white"],
+[style*="color:white"],
+[style*="color: #fff"],
+[style*="color:#fff"],
+[style*="color: #ffffff"],
+[style*="color:#ffffff"] {
+    color: #ffffff !important;
+}
+
+/* Fix purple/lilac backgrounds */
+[style*="background: purple"],
+[style*="background: #800080"],
+[style*="background: #9370DB"],
+[style*="background: #DDA0DD"],
+[style*="background-color: purple"],
+[style*="background-color: #800080"],
+[style*="background-color: #9370DB"],
+[style*="background-color: #DDA0DD"] {
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
 }
