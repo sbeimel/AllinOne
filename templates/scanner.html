@@ -18,201 +18,398 @@
 <div class="page-body">
     <div class="container-xl">
         
-        <!-- Start New Scan -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <h3 class="card-title">Start New Scan</h3>
-            </div>
-            <div class="card-body">
-                <form id="scannerForm">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label required">Portal URL</label>
-                            <input type="text" class="form-control" id="portalUrl" 
-                                   placeholder="http://portal.com/c" required>
-                            <small class="form-hint">Portal URL to scan</small>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Mode</label>
-                            <select class="form-select" id="scanMode">
-                                <option value="random">Random MACs</option>
-                                <option value="list">MAC List</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Speed (Threads)</label>
-                            <input type="number" class="form-control" id="scanSpeed" 
-                                   value="10" min="1" max="50">
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3" id="macListRow" style="display: none;">
-                        <div class="col-md-12">
-                            <label class="form-label">MAC List (one per line)</label>
-                            <textarea class="form-control" id="macList" rows="5" 
-                                      placeholder="00:1A:79:XX:XX:XX&#10;00:1A:79:YY:YY:YY"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">MAC Prefix (for random mode)</label>
-                            <input type="text" class="form-control" id="macPrefix" 
-                                   value="00:1A:79:" placeholder="00:1A:79:">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Timeout (seconds)</label>
-                            <input type="number" class="form-control" id="scanTimeout" 
-                                   value="10" min="5" max="30">
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">Proxies (optional, one per line)</label>
-                            <textarea class="form-control" id="proxies" rows="3" 
-                                      placeholder="http://proxy1:port&#10;socks5://proxy2:port"></textarea>
-                            <small class="form-hint">Leave empty to scan without proxies</small>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="ti ti-radar me-2"></i>Start Scan
-                    </button>
-                </form>
-            </div>
-        </div>
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="scan-tab" data-bs-toggle="tab" data-bs-target="#scan-panel" type="button" role="tab">
+                    <i class="ti ti-radar me-1"></i>Scan
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-panel" type="button" role="tab">
+                    <i class="ti ti-settings me-1"></i>Settings
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="proxies-tab" data-bs-toggle="tab" data-bs-target="#proxies-panel" type="button" role="tab">
+                    <i class="ti ti-network me-1"></i>Proxies
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="found-tab" data-bs-toggle="tab" data-bs-target="#found-panel" type="button" role="tab">
+                    <i class="ti ti-database me-1"></i>Found MACs
+                </button>
+            </li>
+        </ul>
         
-        <!-- Active Scans -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <h3 class="card-title">Active Scans</h3>
-                <div class="card-actions">
-                    <button class="btn btn-sm btn-ghost-secondary" onclick="refreshStatus()">
-                        <i class="ti ti-refresh"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="activeScans">
-                    <div class="text-muted text-center py-4">
-                        <i class="ti ti-radar" style="font-size: 3rem; opacity: 0.3;"></i>
-                        <p class="mt-2">No active scans</p>
+        <div class="tab-content">
+            
+            <!-- SCAN TAB -->
+            <div class="tab-pane fade show active" id="scan-panel" role="tabpanel">
+                
+                <!-- Start New Scan -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title">Start New Scan</h3>
                     </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Found MACs / Hits -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Found MACs (Hits)</h3>
-                <div class="card-actions">
-                    <div class="btn-list">
-                        <button class="btn btn-sm btn-ghost-secondary" onclick="refreshHits()">
-                            <i class="ti ti-refresh"></i> Refresh
-                        </button>
-                        <button class="btn btn-sm btn-ghost-primary" onclick="exportHits()">
-                            <i class="ti ti-download"></i> Export
-                        </button>
-                        <button class="btn btn-sm btn-ghost-danger" onclick="clearHits()">
-                            <i class="ti ti-trash"></i> Clear All
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <!-- Filter & Group Controls -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Filter by Portal</label>
-                        <select class="form-select" id="portalFilter" onchange="applyFilters()">
-                            <option value="">All Portals</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Min. Channels</label>
-                        <input type="number" class="form-control" id="minChannelsFilter" 
-                               value="0" min="0" onchange="applyFilters()">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">DE Only</label>
-                        <select class="form-select" id="deFilter" onchange="applyFilters()">
-                            <option value="">All</option>
-                            <option value="true">🇩🇪 Only</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Group By</label>
-                        <select class="form-select" id="groupBy" onchange="applyFilters()">
-                            <option value="">No Grouping</option>
-                            <option value="portal">By Portal</option>
-                            <option value="de">By DE Status</option>
-                        </select>
+                    <div class="card-body">
+                        <form id="scannerForm">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label required">Portal URL</label>
+                                    <input type="text" class="form-control" id="portalUrl" 
+                                           placeholder="http://portal.com/c" required>
+                                    <small class="form-hint">Portal URL to scan</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Mode</label>
+                                    <select class="form-select" id="scanMode">
+                                        <option value="random">Random MACs</option>
+                                        <option value="list">MAC List</option>
+                                        <option value="refresh">Refresh Found MACs</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Speed (Threads)</label>
+                                    <input type="number" class="form-control" id="scanSpeed" 
+                                           value="10" min="1" max="50">
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3" id="macListRow" style="display: none;">
+                                <div class="col-md-12">
+                                    <label class="form-label">MAC List (one per line)</label>
+                                    <textarea class="form-control" id="macList" rows="5" 
+                                              placeholder="00:1A:79:XX:XX:XX&#10;00:1A:79:YY:YY:YY"></textarea>
+                                    <small class="form-hint">Or upload a file below</small>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3" id="macFileRow" style="display: none;">
+                                <div class="col-md-12">
+                                    <label class="form-label">Upload MAC List File</label>
+                                    <input type="file" class="form-control" id="macFileInput" accept=".txt,.csv">
+                                    <small class="form-hint">Supported formats: .txt, .csv (one MAC per line)</small>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">MAC Prefix (for random mode)</label>
+                                    <input type="text" class="form-control" id="macPrefix" 
+                                           value="00:1A:79:" placeholder="00:1A:79:">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="scanTimeout" 
+                                           value="10" min="5" max="30">
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Proxies (optional, one per line)</label>
+                                    <textarea class="form-control" id="proxies" rows="3" 
+                                              placeholder="http://proxy1:port&#10;socks5://proxy2:port"></textarea>
+                                    <small class="form-hint">Leave empty to use saved proxies or scan without proxies</small>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-radar me-2"></i>Start Scan
+                            </button>
+                        </form>
                     </div>
                 </div>
                 
-                <!-- Stats Summary -->
-                <div class="row mb-3" id="hitsSummary" style="display: none;">
-                    <div class="col-md-3">
-                        <div class="card card-sm">
-                            <div class="card-body">
-                                <div class="text-muted">Total Hits</div>
-                                <div class="h3 mb-0" id="totalHits">0</div>
-                            </div>
+                <!-- Active Scans -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title">Active Scans</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-sm btn-ghost-secondary" onclick="refreshStatus()">
+                                <i class="ti ti-refresh"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="card card-sm">
-                            <div class="card-body">
-                                <div class="text-muted">Unique Portals</div>
-                                <div class="h3 mb-0" id="uniquePortals">0</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card card-sm">
-                            <div class="card-body">
-                                <div class="text-muted">DE Hits</div>
-                                <div class="h3 mb-0" id="deHits">0</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card card-sm">
-                            <div class="card-body">
-                                <div class="text-muted">Avg. Channels</div>
-                                <div class="h3 mb-0" id="avgChannels">0</div>
+                    <div class="card-body">
+                        <div id="activeScans">
+                            <div class="text-muted text-center py-4">
+                                <i class="ti ti-radar" style="font-size: 3rem; opacity: 0.3;"></i>
+                                <p class="mt-2">No active scans</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="table-responsive">
-                    <table class="table table-vcenter card-table" id="hitsTable">
-                        <thead>
-                            <tr>
-                                <th>Portal</th>
-                                <th>MAC</th>
-                                <th>Expiry</th>
-                                <th>Channels</th>
-                                <th>DE</th>
-                                <th>Found At</th>
-                                <th class="w-1">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="hitsTableBody">
-                            <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
-                                    <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
-                                    <p class="mt-2">No hits found yet</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
+            <!-- END SCAN TAB -->
+            
+            <!-- SETTINGS TAB -->
+            <div class="tab-pane fade" id="settings-panel" role="tabpanel">
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title">Scanner Settings</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Speed (Threads)</label>
+                                <input type="number" class="form-control" id="settingSpeed" min="1" max="100" value="10">
+                                <small class="form-hint">Number of concurrent threads</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Timeout (seconds)</label>
+                                <input type="number" class="form-control" id="settingTimeout" min="1" max="60" value="10">
+                                <small class="form-hint">Request timeout</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">MAC Prefix</label>
+                                <input type="text" class="form-control" id="settingMacPrefix" value="00:1A:79:">
+                                <small class="form-hint">Default MAC prefix for random mode</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Min Channels for Valid Hit</label>
+                                <input type="number" class="form-control" id="settingMinChannels" min="0" max="1000" value="1">
+                                <small class="form-hint">Minimum channels required</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Max Proxy Errors</label>
+                                <input type="number" class="form-control" id="settingMaxProxyErrors" min="1" max="20" value="10">
+                                <small class="form-hint">Disable proxy after N errors</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Proxy Rotation %</label>
+                                <input type="number" class="form-control" id="settingProxyRotation" min="10" max="100" value="80">
+                                <small class="form-hint">% of best proxies to use</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingUseProxies">
+                                    <label class="form-check-label" for="settingUseProxies">Use Proxies</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingAutoSave" checked>
+                                    <label class="form-check-label" for="settingAutoSave">Auto-save Found MACs</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingRequireChannels" checked>
+                                    <label class="form-check-label" for="settingRequireChannels">Require Channels for Valid Hit</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingUnlimitedRetries">
+                                    <label class="form-check-label" for="settingUnlimitedRetries">Unlimited Proxy Retries</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-success" onclick="saveSettings()">
+                            <i class="ti ti-device-floppy me-2"></i>Save Settings
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadSettings()">
+                            <i class="ti ti-refresh me-2"></i>Reload Settings
+                        </button>
+                    </div>
+                </div>
+                
+            </div>
+            <!-- END SETTINGS TAB -->
+            
+            <!-- PROXIES TAB -->
+            <div class="tab-pane fade" id="proxies-panel" role="tabpanel">
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title">Proxy Management</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="btn-list mb-3">
+                            <button class="btn btn-primary" onclick="fetchProxies()">
+                                <i class="ti ti-download me-2"></i>Fetch Proxies
+                            </button>
+                            <button class="btn btn-warning" onclick="testProxies()">
+                                <i class="ti ti-test-pipe me-2"></i>Test Proxies
+                            </button>
+                            <button class="btn btn-info" onclick="testAutodetect()">
+                                <i class="ti ti-search me-2"></i>Test & Auto-Detect
+                            </button>
+                            <button class="btn btn-danger" onclick="removeFailedProxies()">
+                                <i class="ti ti-trash me-2"></i>Remove Failed
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetProxyErrors()">
+                                <i class="ti ti-refresh me-2"></i>Reset Errors
+                            </button>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Proxy List (<span id="proxyCount">0</span> proxies)</label>
+                                <textarea class="form-control" id="proxyList" rows="10" 
+                                          placeholder="http://proxy1:port&#10;socks5://proxy2:port"></textarea>
+                                <button class="btn btn-success mt-2" onclick="saveProxies()">
+                                    <i class="ti ti-device-floppy me-2"></i>Save Proxies
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Proxy Sources</label>
+                                <textarea class="form-control" id="proxySources" rows="10" 
+                                          placeholder="https://example.com/proxy-list.txt"></textarea>
+                                <button class="btn btn-success mt-2" onclick="saveProxySources()">
+                                    <i class="ti ti-device-floppy me-2"></i>Save Sources
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Proxy Log</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="proxyLog" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.875rem;">
+                            <div class="text-muted">No proxy operations yet</div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            <!-- END PROXIES TAB -->
+            
+            <!-- FOUND MACS TAB -->
+            <div class="tab-pane fade" id="found-panel" role="tabpanel">
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Found MACs (Hits)</h3>
+                        <div class="card-actions">
+                            <div class="btn-list">
+                                <button class="btn btn-sm btn-ghost-secondary" onclick="refreshHits()">
+                                    <i class="ti ti-refresh"></i> Refresh
+                                </button>
+                                <button class="btn btn-sm btn-ghost-primary" onclick="exportHits()">
+                                    <i class="ti ti-download"></i> Export
+                                </button>
+                                <button class="btn btn-sm btn-ghost-danger" onclick="clearHits()">
+                                    <i class="ti ti-trash"></i> Clear All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Filter & Group Controls -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Filter by Portal</label>
+                                <select class="form-select" id="portalFilter" onchange="applyFilters()">
+                                    <option value="">All Portals</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Min. Channels</label>
+                                <input type="number" class="form-control" id="minChannelsFilter" 
+                                       value="0" min="0" onchange="applyFilters()">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">DE Only</label>
+                                <select class="form-select" id="deFilter" onchange="applyFilters()">
+                                    <option value="">All</option>
+                                    <option value="true">🇩🇪 Only</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Group By</label>
+                                <select class="form-select" id="groupBy" onchange="applyFilters()">
+                                    <option value="">No Grouping</option>
+                                    <option value="portal">By Portal</option>
+                                    <option value="de">By DE Status</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats Summary -->
+                        <div class="row mb-3" id="hitsSummary" style="display: none;">
+                            <div class="col-md-3">
+                                <div class="card card-sm">
+                                    <div class="card-body">
+                                        <div class="text-muted">Total Hits</div>
+                                        <div class="h3 mb-0" id="totalHits">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card card-sm">
+                                    <div class="card-body">
+                                        <div class="text-muted">Unique Portals</div>
+                                        <div class="h3 mb-0" id="uniquePortals">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card card-sm">
+                                    <div class="card-body">
+                                        <div class="text-muted">DE Hits</div>
+                                        <div class="h3 mb-0" id="deHits">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card card-sm">
+                                    <div class="card-body">
+                                        <div class="text-muted">Avg. Channels</div>
+                                        <div class="h3 mb-0" id="avgChannels">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-vcenter card-table" id="hitsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Portal</th>
+                                        <th>MAC</th>
+                                        <th>Expiry</th>
+                                        <th>Channels</th>
+                                        <th>DE</th>
+                                        <th>Found At</th>
+                                        <th class="w-1">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hitsTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
+                                            <p class="mt-2">No hits found yet</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            <!-- END FOUND MACS TAB -->
+            
         </div>
+        <!-- END TAB CONTENT -->
         
     </div>
 </div>
@@ -226,11 +423,26 @@ let allHitsData = [];
 
 // Initial load
 refreshStatus();
+loadSettings();
+loadProxies();
+loadProxySources();
 
 // Show/hide MAC list based on mode
 document.getElementById('scanMode').addEventListener('change', (e) => {
     const macListRow = document.getElementById('macListRow');
-    macListRow.style.display = e.target.value === 'list' ? 'block' : 'none';
+    const macFileRow = document.getElementById('macFileRow');
+    const isListMode = e.target.value === 'list';
+    macListRow.style.display = isListMode ? 'block' : 'none';
+    macFileRow.style.display = isListMode ? 'block' : 'none';
+});
+
+// Handle MAC file upload
+document.getElementById('macFileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const text = await file.text();
+    document.getElementById('macList').value = text;
 });
 
 // Start scan
@@ -757,6 +969,255 @@ async function clearHits() {
         alert('Error clearing MACs');
     }
 }
+
+// ============== SETTINGS FUNCTIONS ==============
+
+async function loadSettings() {
+    try {
+        const resp = await fetch('/scanner/settings');
+        const settings = await resp.json();
+        
+        document.getElementById('settingSpeed').value = settings.speed || 10;
+        document.getElementById('settingTimeout').value = settings.timeout || 10;
+        document.getElementById('settingMacPrefix').value = settings.mac_prefix || '00:1A:79:';
+        document.getElementById('settingMinChannels').value = settings.min_channels_for_valid_hit || 1;
+        document.getElementById('settingMaxProxyErrors').value = settings.max_proxy_errors || 10;
+        document.getElementById('settingProxyRotation').value = settings.proxy_rotation_percentage || 80;
+        document.getElementById('settingUseProxies').checked = settings.use_proxies || false;
+        document.getElementById('settingAutoSave').checked = settings.auto_save !== false;
+        document.getElementById('settingRequireChannels').checked = settings.require_channels_for_valid_hit !== false;
+        document.getElementById('settingUnlimitedRetries').checked = settings.unlimited_mac_retries !== false;
+    } catch (e) {
+        console.error('Error loading settings:', e);
+    }
+}
+
+async function saveSettings() {
+    const settings = {
+        speed: parseInt(document.getElementById('settingSpeed').value),
+        timeout: parseInt(document.getElementById('settingTimeout').value),
+        mac_prefix: document.getElementById('settingMacPrefix').value,
+        min_channels_for_valid_hit: parseInt(document.getElementById('settingMinChannels').value),
+        max_proxy_errors: parseInt(document.getElementById('settingMaxProxyErrors').value),
+        proxy_rotation_percentage: parseInt(document.getElementById('settingProxyRotation').value),
+        use_proxies: document.getElementById('settingUseProxies').checked,
+        auto_save: document.getElementById('settingAutoSave').checked,
+        require_channels_for_valid_hit: document.getElementById('settingRequireChannels').checked,
+        unlimited_mac_retries: document.getElementById('settingUnlimitedRetries').checked
+    };
+    
+    try {
+        const resp = await fetch('/scanner/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(settings)
+        });
+        
+        const result = await resp.json();
+        if (result.success) {
+            alert('Settings saved successfully!');
+        } else {
+            alert('Error saving settings');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// ============== PROXY FUNCTIONS ==============
+
+async function loadProxies() {
+    try {
+        const resp = await fetch('/scanner/proxies');
+        const data = await resp.json();
+        
+        if (data.proxies && data.proxies.length > 0) {
+            document.getElementById('proxyList').value = data.proxies.join('\n');
+            document.getElementById('proxyCount').textContent = data.proxies.length;
+        } else {
+            document.getElementById('proxyList').value = '';
+            document.getElementById('proxyCount').textContent = '0';
+        }
+    } catch (e) {
+        console.error('Error loading proxies:', e);
+    }
+}
+
+async function saveProxies() {
+    const proxies = document.getElementById('proxyList').value;
+    
+    try {
+        const resp = await fetch('/scanner/proxies', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({proxies: proxies})
+        });
+        
+        const result = await resp.json();
+        if (result.success) {
+            document.getElementById('proxyCount').textContent = result.count || 0;
+            alert('Proxies saved successfully!');
+        } else {
+            alert('Error saving proxies');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function loadProxySources() {
+    try {
+        const resp = await fetch('/scanner/proxy-sources');
+        const data = await resp.json();
+        
+        if (data.sources && data.sources.length > 0) {
+            document.getElementById('proxySources').value = data.sources.join('\n');
+        }
+    } catch (e) {
+        console.error('Error loading proxy sources:', e);
+    }
+}
+
+async function saveProxySources() {
+    const sources = document.getElementById('proxySources').value;
+    
+    try {
+        const resp = await fetch('/scanner/proxy-sources', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sources: sources})
+        });
+        
+        const result = await resp.json();
+        if (result.success) {
+            alert('Proxy sources saved successfully!');
+        } else {
+            alert('Error saving proxy sources');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function fetchProxies() {
+    try {
+        const resp = await fetch('/scanner/proxies/fetch', {method: 'POST'});
+        const result = await resp.json();
+        
+        if (result.success) {
+            alert('Fetching proxies... Check proxy log for progress.');
+            startProxyPolling();
+        } else {
+            alert('Error fetching proxies');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function testProxies() {
+    try {
+        const resp = await fetch('/scanner/proxies/test', {method: 'POST'});
+        const result = await resp.json();
+        
+        if (result.success) {
+            alert('Testing proxies... Check proxy log for progress.');
+            startProxyPolling();
+        } else {
+            alert('Error testing proxies');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function testAutodetect() {
+    try {
+        const resp = await fetch('/scanner/proxies/test-autodetect', {method: 'POST'});
+        const result = await resp.json();
+        
+        if (result.success) {
+            alert('Testing and auto-detecting proxy types... Check proxy log for progress.');
+            startProxyPolling();
+        } else {
+            alert('Error testing proxies');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function removeFailedProxies() {
+    if (!confirm('Remove all failed proxies?')) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/scanner/proxies/remove-failed', {method: 'POST'});
+        const result = await resp.json();
+        
+        if (result.success) {
+            alert(`Removed ${result.removed} failed proxies. ${result.remaining} remaining.`);
+            loadProxies();
+        } else {
+            alert('No failed proxies to remove');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function resetProxyErrors() {
+    try {
+        const resp = await fetch('/scanner/proxies/reset-errors', {method: 'POST'});
+        const result = await resp.json();
+        
+        if (result.success) {
+            alert('Proxy errors reset successfully!');
+        } else {
+            alert('Error resetting proxy errors');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+let proxyPollingInterval = null;
+
+function startProxyPolling() {
+    if (proxyPollingInterval) clearInterval(proxyPollingInterval);
+    proxyPollingInterval = setInterval(updateProxyStatus, 1000);
+}
+
+async function updateProxyStatus() {
+    try {
+        const resp = await fetch('/scanner/proxies/status');
+        const data = await resp.json();
+        
+        const logBox = document.getElementById('proxyLog');
+        if (data.logs && data.logs.length > 0) {
+            logBox.innerHTML = data.logs.map(l => 
+                `<div style="color: ${l.level === 'error' ? '#ff6b6b' : l.level === 'success' ? '#51cf66' : '#adb5bd'}">
+                    [${l.time}] ${l.message}
+                </div>`
+            ).join('');
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+        
+        if (data.proxies && data.proxies.length > 0) {
+            document.getElementById('proxyList').value = data.proxies.join('\n');
+            document.getElementById('proxyCount').textContent = data.proxies.length;
+        }
+        
+        if (!data.fetching && !data.testing) {
+            clearInterval(proxyPollingInterval);
+            proxyPollingInterval = null;
+        }
+    } catch (e) {
+        console.error('Error updating proxy status:', e);
+    }
+}
+
 </script>
 
 {% endblock %}
