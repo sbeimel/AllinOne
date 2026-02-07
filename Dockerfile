@@ -38,6 +38,8 @@ RUN pip install --no-cache-dir \
 COPY app-docker.py app.py
 COPY stb.py .
 COPY utils.py .
+COPY scanner.py .
+COPY scanner_async.py .
 COPY templates/ templates/
 COPY static/ static/
 
