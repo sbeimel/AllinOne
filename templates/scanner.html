@@ -57,15 +57,24 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label required">Portal URL</label>
-                                    <input type="text" class="form-control" id="portalUrl" 
-                                           placeholder="http://portal.com/c" required>
-                                    <small class="form-hint">Portal URL to scan</small>
+                                    <label class="form-label required">Portal URL</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="portalUrl" 
+                                               placeholder="http://portal.com/c" required>
+                                        <button type="button" class="btn btn-secondary" 
+                                                onclick="autoDetectPortal()" 
+                                                title="Auto-detect portal endpoint">
+                                            <i class="ti ti-search"></i> Auto-Detect
+                                        </button>
+                                    </div>
+                                    <small class="form-hint">Portal URL to scan (Auto-Detect finds correct endpoint)</small>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Mode</label>
                                     <select class="form-select" id="scanMode">
                                         <option value="random">Random MACs</option>
                                         <option value="list">MAC List</option>
+                                        <option value="xscan">Xscan (MAC Range)</option>
                                         <option value="refresh">Refresh Found MACs</option>
                                     </select>
                                 </div>
@@ -90,6 +99,21 @@
                                     <label class="form-label">Upload MAC List File</label>
                                     <input type="file" class="form-control" id="macFileInput" accept=".txt,.csv">
                                     <small class="form-hint">Supported formats: .txt, .csv (one MAC per line)</small>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3" id="xscanRangeRow" style="display: none;">
+                                <div class="col-md-6">
+                                    <label class="form-label">Start MAC</label>
+                                    <input type="text" class="form-control" id="macRangeStart" 
+                                           placeholder="00:1A:79:00:00:00">
+                                    <small class="form-hint">Starting MAC address of range</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">End MAC</label>
+                                    <input type="text" class="form-control" id="macRangeEnd" 
+                                           placeholder="00:1A:79:00:FF:FF">
+                                    <small class="form-hint">Ending MAC address of range (max 1M MACs)</small>
                                 </div>
                             </div>
                             
@@ -150,6 +174,57 @@
                 
                 <div class="card mb-3">
                     <div class="card-header">
+                        <h3 class="card-title">💡 Recommended Settings</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <strong>Für maximale Genauigkeit (langsamer):</strong><br>
+                            Geschwindigkeit: 10-15 Threads | Max Proxy-Fehler: 8-10 | Proxy-Rotation: 70% | Verbindungs-Timeout: 8s | Unbegrenzte Wiederholungen: AN<br>
+                            <em>Kompatibilitätsmodus: AUS (intelligente Wiederholungslogik)</em><br><br>
+                            
+                            <strong>Für ausgewogene Leistung:</strong><br>
+                            Geschwindigkeit: 15-20 Threads | Max Proxy-Fehler: 5-8 | Proxy-Rotation: 50% | Verbindungs-Timeout: 5s | Max Proxy-Versuche: 15<br>
+                            <em>Kompatibilitätsmodus: AUS (empfohlen)</em><br><br>
+                            
+                            <strong>Für schnelles Scannen (höhere Falsch-Negative):</strong><br>
+                            Geschwindigkeit: 20-30 Threads | Max Proxy-Fehler: 3-5 | Proxy-Rotation: 30% | Verbindungs-Timeout: 3s | Max Proxy-Versuche: 5<br>
+                            <em>Kompatibilitätsmodus: AN (MacAttack.pyw Verhalten - schneller aber weniger genau)</em><br><br>
+                            
+                            <strong>Für Stealth-Modus (Erkennung vermeiden):</strong><br>
+                            Geschwindigkeit: 5-8 Threads | Anfrage-Verzögerung: 1,5s | User-Agent-Rotation: AN | Proxy-Rotation: Alle 5 Anfragen<br>
+                            <em>Kompatibilitätsmodus: AUS (intelligenter Modus für bessere Genauigkeit)</em><br><br>
+                            
+                            <strong>Ohne Proxies (Direkte Verbindung):</strong><br>
+                            Geschwindigkeit: 5-10 Threads | Lese-Timeout: 15-20s (Portale können langsam sein)<br>
+                            <em>Kompatibilitätsmodus: AUS (keine Proxies zum Wiederholen vorhanden)</em><br><br>
+                            
+                            <hr class="my-3">
+                            <strong>📖 Kompatibilitätsmodus erklärt:</strong><br>
+                            <strong>AUS (Standard):</strong> Intelligenter Modus - analysiert Antwort um zu entscheiden ob MAC ungültig ist oder ob es ein Proxy/Netzwerk-Problem ist. Wiederholt mit anderem Proxy bei Fehlern. <strong>Bessere Genauigkeit, findet mehr gültige MACs.</strong><br>
+                            <strong>AN:</strong> MacAttack.pyw Verhalten - kein Token = MAC sofort ungültig, keine Wiederholung. <strong>Schneller aber höhere Falsch-Negative.</strong>
+                        </div>
+                        <div class="btn-list">
+                            <button class="btn btn-success" onclick="applyMaxAccuracy()">
+                                <i class="ti ti-target me-2"></i>Apply Max Accuracy
+                            </button>
+                            <button class="btn btn-primary" onclick="applyBalanced()">
+                                <i class="ti ti-adjustments me-2"></i>Apply Balanced
+                            </button>
+                            <button class="btn btn-warning" onclick="applyFastScan()">
+                                <i class="ti ti-bolt me-2"></i>Apply Fast Scan
+                            </button>
+                            <button class="btn btn-info" onclick="applyStealth()">
+                                <i class="ti ti-eye-off me-2"></i>Apply Stealth
+                            </button>
+                            <button class="btn btn-secondary" onclick="applyNoProxy()">
+                                <i class="ti ti-plug-off me-2"></i>Apply No Proxy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h3 class="card-title">Scanner Settings</h3>
                     </div>
                     <div class="card-body">
@@ -189,6 +264,30 @@
                             </div>
                         </div>
                         
+                        <hr class="my-4">
+                        <h4 class="mb-3">🥷 Stealth Settings</h4>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Request Delay (seconds)</label>
+                                <input type="number" class="form-control" id="settingRequestDelay" min="0" max="10" step="0.1" value="0">
+                                <small class="form-hint">Pause between requests (0 = disabled)</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Force Proxy Rotation Every</label>
+                                <input type="number" class="form-control" id="settingForceProxyRotation" min="0" max="100" value="0">
+                                <small class="form-hint">Requests (0 = disabled)</small>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check form-switch mt-4">
+                                    <input class="form-check-input" type="checkbox" id="settingUserAgentRotation">
+                                    <label class="form-check-label" for="settingUserAgentRotation">User-Agent Rotation</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <div class="form-check form-switch">
@@ -208,14 +307,80 @@
                             <div class="col-md-6">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" id="settingRequireChannels" checked>
-                                    <label class="form-check-label" for="settingRequireChannels">Require Channels for Valid Hit</label>
+                                    <label class="form-check-label" for="settingRequireChannels">Kanäle für gültigen Hit erforderlich</label>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" id="settingUnlimitedRetries">
-                                    <label class="form-check-label" for="settingUnlimitedRetries">Unlimited Proxy Retries</label>
+                                    <label class="form-check-label" for="settingUnlimitedRetries">Unbegrenzte Proxy-Wiederholungen</label>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3" id="maxProxyAttemptsRow">
+                            <div class="col-md-12">
+                                <label class="form-label">Max Proxy-Versuche pro MAC</label>
+                                <input type="number" class="form-control" id="settingMaxProxyAttempts" min="1" max="50" value="10">
+                                <small class="form-hint">Maximale Anzahl verschiedener Proxies die für eine MAC probiert werden (nur wenn "Unbegrenzte Wiederholungen" AUS ist)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingCompatibleMode">
+                                    <label class="form-check-label" for="settingCompatibleMode">MacAttack.pyw Kompatibilitätsmodus</label>
+                                    <small class="form-hint d-block ms-4">
+                                        <strong>AN:</strong> Wie MacAttack.pyw - kein Token = MAC ungültig (keine Proxy-Wiederholung)<br>
+                                        <strong>AUS:</strong> Intelligenter Modus - Antwort analysieren um Wiederholung vs ungültig zu entscheiden
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        <h4 class="mb-3">🎯 Advanced Features</h4>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingCloudflareBypass" checked>
+                                    <label class="form-check-label" for="settingCloudflareBypass">Cloudflare Bypass (CFR)</label>
+                                    <small class="form-hint d-block ms-4">Cloudflare-spezifische Header für bessere Erfolgsrate</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingRandomXForwardedFor" checked>
+                                    <label class="form-check-label" for="settingRandomXForwardedFor">Random X-Forwarded-For</label>
+                                    <small class="form-hint d-block ms-4">Zufällige IP-Adressen für Rate-Limit Bypass</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingDeduplicateMACs" checked>
+                                    <label class="form-check-label" for="settingDeduplicateMACs">MAC Listen Deduplizierung</label>
+                                    <small class="form-hint d-block ms-4">Duplikate automatisch entfernen</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="settingGenerateNeighborMACs">
+                                    <label class="form-check-label" for="settingGenerateNeighborMACs">Nachbar-MACs Generieren</label>
+                                    <small class="form-hint d-block ms-4">Pattern-basierte MAC-Generierung (z.B. ...67 → ...66, ...68)</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3" id="neighborRangeRow" style="display: none;">
+                            <div class="col-md-12">
+                                <label class="form-label">Nachbar-MAC Bereich (±)</label>
+                                <input type="number" class="form-control" id="settingNeighborRange" min="1" max="20" value="5">
+                                <small class="form-hint">Anzahl der Nachbar-MACs in jede Richtung (z.B. 5 = ±5 MACs)</small>
                             </div>
                         </div>
                         
@@ -300,6 +465,12 @@
                         <h3 class="card-title">Found MACs (Hits)</h3>
                         <div class="card-actions">
                             <div class="btn-list">
+                                <button class="btn btn-sm btn-ghost-info" onclick="crawlPortals()" title="Find new portals from urlscan.io">
+                                    <i class="ti ti-world-search"></i> Find Portals
+                                </button>
+                                <button class="btn btn-sm btn-ghost-success" onclick="exportAllToM3U()" title="Export all found MACs as single M3U">
+                                    <i class="ti ti-file-download"></i> Export All M3U
+                                </button>
                                 <button class="btn btn-sm btn-ghost-secondary" onclick="refreshHits()">
                                     <i class="ti ti-refresh"></i> Refresh
                                 </button>
@@ -384,17 +555,19 @@
                                 <thead>
                                     <tr>
                                         <th>Portal</th>
+                                        <th>Type</th>
                                         <th>MAC</th>
                                         <th>Expiry</th>
                                         <th>Channels</th>
                                         <th>DE</th>
                                         <th>Found At</th>
+                                        <th>Quality</th>
                                         <th class="w-1">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="hitsTableBody">
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">
+                                        <td colspan="9" class="text-center text-muted py-4">
                                             <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
                                             <p class="mt-2">No hits found yet</p>
                                         </td>
@@ -431,9 +604,15 @@ loadProxySources();
 document.getElementById('scanMode').addEventListener('change', (e) => {
     const macListRow = document.getElementById('macListRow');
     const macFileRow = document.getElementById('macFileRow');
-    const isListMode = e.target.value === 'list';
+    const xscanRangeRow = document.getElementById('xscanRangeRow');
+    const mode = e.target.value;
+    
+    const isListMode = mode === 'list';
+    const isXscanMode = mode === 'xscan';
+    
     macListRow.style.display = isListMode ? 'block' : 'none';
     macFileRow.style.display = isListMode ? 'block' : 'none';
+    xscanRangeRow.style.display = isXscanMode ? 'block' : 'none';
 });
 
 // Handle MAC file upload
@@ -457,18 +636,30 @@ document.getElementById('scannerForm').addEventListener('submit', async (e) => {
     const macList = document.getElementById('macList').value;
     const proxies = document.getElementById('proxies').value;
     
+    // Xscan mode parameters
+    const macRangeStart = document.getElementById('macRangeStart').value;
+    const macRangeEnd = document.getElementById('macRangeEnd').value;
+    
+    const payload = {
+        portal_url: portalUrl,
+        mode: mode,
+        speed: speed,
+        timeout: timeout,
+        mac_prefix: macPrefix,
+        mac_list: macList,
+        proxies: proxies
+    };
+    
+    // Add xscan parameters if in xscan mode
+    if (mode === 'xscan') {
+        payload.mac_range_start = macRangeStart;
+        payload.mac_range_end = macRangeEnd;
+    }
+    
     const resp = await fetch('/scanner/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            portal_url: portalUrl,
-            mode: mode,
-            speed: speed,
-            timeout: timeout,
-            mac_prefix: macPrefix,
-            mac_list: macList,
-            proxies: proxies
-        })
+        body: JSON.stringify(payload)
     });
     
     const result = await resp.json();
@@ -497,6 +688,16 @@ document.getElementById('scannerForm').addEventListener('submit', async (e) => {
         alert('Error: ' + result.error);
     }
 });
+
+// Format ETA seconds to human readable
+function formatETA(seconds) {
+    if (!seconds || seconds <= 0) return '∞';
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${mins}m`;
+}
 
 // Refresh active scans
 async function refreshStatus() {
@@ -562,6 +763,26 @@ async function refreshStatus() {
                         <div class="col-3">
                             <div class="text-muted">Elapsed</div>
                             <div class="h3 mb-0">${attack.elapsed}s</div>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-3">
+                            <div class="text-muted">CPM</div>
+                            <div class="h4 mb-0 text-info">${attack.cpm || 0}</div>
+                            <small class="text-muted">checks/min</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted">Hit Rate</div>
+                            <div class="h4 mb-0 text-success">${attack.hit_rate || 0}%</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted">ETA</div>
+                            <div class="h4 mb-0">${formatETA(attack.eta_seconds || 0)}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted">Avg Quality</div>
+                            <div class="h4 mb-0 text-warning">${attack.avg_quality || 0}</div>
+                            <small class="text-muted">/100</small>
                         </div>
                     </div>
                     ${attack.mode === 'list' ? `
@@ -719,7 +940,7 @@ function displayHits(hits) {
     if (!hits || hits.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                     <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
                     <p class="mt-2">No hits found</p>
                 </td>
@@ -746,7 +967,7 @@ function displayGroupedByPortal(hits) {
     if (!hits || hits.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                     <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
                     <p class="mt-2">No hits found</p>
                 </td>
@@ -769,7 +990,7 @@ function displayGroupedByPortal(hits) {
         // Group header
         html += `
             <tr class="table-active">
-                <td colspan="7">
+                <td colspan="9">
                     <strong>${portal}</strong>
                     <span class="badge bg-blue-lt ms-2">${portalHits.length} hits</span>
                 </td>
@@ -795,7 +1016,7 @@ function displayGroupedByDE(hits) {
     if (!hits || hits.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                     <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
                     <p class="mt-2">No hits found</p>
                 </td>
@@ -814,7 +1035,7 @@ function displayGroupedByDE(hits) {
     if (deHits.length > 0) {
         html += `
             <tr class="table-active">
-                <td colspan="7">
+                <td colspan="9">
                     <strong>🇩🇪 German Channels</strong>
                     <span class="badge bg-blue-lt ms-2">${deHits.length} hits</span>
                 </td>
@@ -831,7 +1052,7 @@ function displayGroupedByDE(hits) {
     if (nonDeHits.length > 0) {
         html += `
             <tr class="table-active">
-                <td colspan="7">
+                <td colspan="9">
                     <strong>Other Channels</strong>
                     <span class="badge bg-blue-lt ms-2">${nonDeHits.length} hits</span>
                 </td>
@@ -851,20 +1072,41 @@ function displayGroupedByDE(hits) {
 function renderHitRow(hit) {
     const deIcon = hit.has_de ? '🇩🇪' : '';
     const foundAt = new Date(hit.found_at).toLocaleString();
+    const portalType = hit.portal_type || 'unknown';
+    const portalTypeIcon = portalType.startsWith('stalker') ? '📡' : '❓';
+    const qualityScore = hit.quality_score || 0;
+    
+    // Quality score color
+    let qualityColor = 'secondary';
+    if (qualityScore >= 80) qualityColor = 'success';
+    else if (qualityScore >= 60) qualityColor = 'info';
+    else if (qualityScore >= 40) qualityColor = 'warning';
+    else qualityColor = 'danger';
     
     return `
         <tr>
             <td><small class="text-muted">${hit.portal}</small></td>
+            <td><span class="badge bg-secondary-lt">${portalTypeIcon} ${portalType}</span></td>
             <td><code>${hit.mac}</code></td>
             <td>${hit.expiry}</td>
             <td><span class="badge bg-blue-lt">${hit.channels}</span></td>
             <td>${deIcon}</td>
             <td><small class="text-muted">${foundAt}</small></td>
             <td>
-                <button class="btn btn-sm btn-success" 
-                        onclick='createPortal(${JSON.stringify(hit).replace(/'/g, "&#39;")})'>
-                    <i class="ti ti-plus"></i> Create Portal
-                </button>
+                <span class="badge bg-${qualityColor}" title="Quality Score">${qualityScore}/100</span>
+            </td>
+            <td>
+                <div class="btn-list">
+                    <button class="btn btn-sm btn-success" 
+                            onclick='createPortal(${JSON.stringify(hit).replace(/'/g, "&#39;")})'>
+                        <i class="ti ti-plus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-info" 
+                            onclick='convertToM3U("${hit.mac}", "${hit.portal}")' 
+                            title="Convert to M3U">
+                        <i class="ti ti-file-download"></i>
+                    </button>
+                </div>
             </td>
         </tr>
     `;
@@ -941,6 +1183,94 @@ async function createPortal(hitData) {
     }
 }
 
+// Auto-detect portal endpoint
+async function autoDetectPortal() {
+    const portalUrlInput = document.getElementById('portalUrl');
+    const portalUrl = portalUrlInput.value.trim();
+    
+    if (!portalUrl) {
+        alert('Please enter a portal URL first');
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/scanner/auto-detect-portal', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({portal_url: portalUrl})
+        });
+        
+        const result = await resp.json();
+        
+        if (result.success) {
+            portalUrlInput.value = result.detected_url;
+            
+            // Show success message with portal info
+            const message = `✅ Portal detected!\n\nURL: ${result.detected_url}\nType: ${result.portal_type}\nVersion: ${result.version}`;
+            alert(message);
+        } else {
+            alert(`❌ Auto-detection failed: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Auto-detect error:', error);
+        alert(`❌ Auto-detection failed: ${error.message}`);
+    }
+}
+
+// Convert MAC to M3U playlist
+async function convertToM3U(mac, portal) {
+    if (!confirm(`Convert ${mac} to M3U playlist?`)) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/scanner/convert-mac2m3u', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({mac: mac, portal_url: portal})
+        });
+        
+        if (resp.ok) {
+            // Download the M3U file
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${mac.replace(/:/g, '')}.m3u`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showAlert('success', `M3U playlist for ${mac} downloaded successfully!`);
+        } else {
+            const error = await resp.json();
+            showAlert('danger', `Error: ${error.error || 'Failed to convert MAC to M3U'}`);
+        }
+    } catch (e) {
+        console.error('Error converting MAC to M3U:', e);
+        showAlert('danger', 'Error converting MAC to M3U');
+    }
+}
+                <div class="d-flex">
+                    <div><i class="ti ti-check alert-icon"></i></div>
+                    <div>
+                        <h4 class="alert-title">M3U Downloaded!</h4>
+                        <div class="text-secondary">${mac}</div>
+                    </div>
+                </div>
+                <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+            `;
+            document.querySelector('.page-body .container-xl').insertBefore(alert, document.querySelector('.page-body .container-xl').firstChild);
+        } else {
+            const result = await resp.json();
+            alert('Error: ' + (result.error || 'Failed to convert'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     clearInterval(refreshInterval);
@@ -970,6 +1300,104 @@ async function clearHits() {
     }
 }
 
+// Portal Crawler - Find new portals from urlscan.io
+async function crawlPortals() {
+    if (!confirm('Search for new portals on urlscan.io? This may take a few seconds.')) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/scanner/crawl-portals', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        
+        const result = await resp.json();
+        
+        if (result.success && result.portals && result.portals.length > 0) {
+            // Show portals in a modal or alert
+            let portalList = result.portals.slice(0, 10).join('\n');
+            if (result.portals.length > 10) {
+                portalList += `\n... and ${result.portals.length - 10} more`;
+            }
+            alert(`Found ${result.count} portals:\n\n${portalList}\n\nCopy these portals to scan them!`);
+        } else {
+            alert('No new portals found. Try again later.');
+        }
+    } catch (error) {
+        console.error('Portal crawl error:', error);
+        alert('Error crawling portals: ' + error.message);
+    }
+}
+
+// Export All MACs to M3U
+async function exportAllToM3U() {
+    // Get current filters
+    const portalFilter = document.getElementById('portalFilter').value;
+    const minChannels = parseInt(document.getElementById('minChannelsFilter').value) || 0;
+    const deOnly = document.getElementById('deFilter').value === 'true';
+    
+    // Confirm export
+    const filterDesc = [];
+    if (portalFilter) filterDesc.push(`Portal: ${portalFilter}`);
+    if (minChannels > 0) filterDesc.push(`Min ${minChannels} channels`);
+    if (deOnly) filterDesc.push('DE only');
+    
+    const filterText = filterDesc.length > 0 ? `\nFilters: ${filterDesc.join(', ')}` : '';
+    
+    if (!confirm(`Export all found MACs as single M3U playlist?${filterText}\n\nThis may take 1-2 minutes for many MACs.`)) {
+        return;
+    }
+    
+    try {
+        // Show loading indicator
+        const originalText = event.target.innerHTML;
+        event.target.innerHTML = '<i class="ti ti-loader ti-spin"></i> Exporting...';
+        event.target.disabled = true;
+        
+        const resp = await fetch('/scanner/export-all-m3u', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                portal: portalFilter || null,
+                min_channels: minChannels,
+                de_only: deOnly,
+                max_macs: 50  // Limit to 50 MACs to avoid timeout
+            })
+        });
+        
+        if (resp.ok) {
+            // Download the M3U file
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scanner_all_macs_${Date.now()}.m3u`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            alert('M3U export complete!');
+        } else {
+            const error = await resp.json();
+            alert('Export failed: ' + (error.error || 'Unknown error'));
+        }
+        
+        // Restore button
+        event.target.innerHTML = originalText;
+        event.target.disabled = false;
+        
+    } catch (error) {
+        console.error('M3U export error:', error);
+        alert('Error exporting M3U: ' + error.message);
+        
+        // Restore button
+        event.target.innerHTML = originalText;
+        event.target.disabled = false;
+    }
+}
+
 // ============== SETTINGS FUNCTIONS ==============
 
 async function loadSettings() {
@@ -983,14 +1411,35 @@ async function loadSettings() {
         document.getElementById('settingMinChannels').value = settings.min_channels_for_valid_hit || 1;
         document.getElementById('settingMaxProxyErrors').value = settings.max_proxy_errors || 10;
         document.getElementById('settingProxyRotation').value = settings.proxy_rotation_percentage || 80;
+        document.getElementById('settingRequestDelay').value = settings.request_delay || 0;
+        document.getElementById('settingForceProxyRotation').value = settings.force_proxy_rotation_every || 0;
+        document.getElementById('settingUserAgentRotation').checked = settings.user_agent_rotation || false;
         document.getElementById('settingUseProxies').checked = settings.use_proxies || false;
         document.getElementById('settingAutoSave').checked = settings.auto_save !== false;
         document.getElementById('settingRequireChannels').checked = settings.require_channels_for_valid_hit !== false;
         document.getElementById('settingUnlimitedRetries').checked = settings.unlimited_mac_retries !== false;
+        document.getElementById('settingMaxProxyAttempts').value = settings.max_proxy_attempts_per_mac || 10;
+        document.getElementById('settingCompatibleMode').checked = settings.macattack_compatible_mode || false;
+        
+        // Advanced settings
+        document.getElementById('settingCloudflareBypass').checked = settings.cloudflare_bypass !== false;
+        document.getElementById('settingRandomXForwardedFor').checked = settings.random_x_forwarded_for !== false;
+        document.getElementById('settingDeduplicateMACs').checked = settings.deduplicate_mac_lists !== false;
+        document.getElementById('settingGenerateNeighborMACs').checked = settings.generate_neighbor_macs || false;
+        document.getElementById('settingNeighborRange').value = settings.neighbor_mac_range || 5;
+        
+        // Show/hide neighbor range row
+        document.getElementById('neighborRangeRow').style.display = 
+            settings.generate_neighbor_macs ? 'block' : 'none';
     } catch (e) {
         console.error('Error loading settings:', e);
     }
 }
+
+// Toggle neighbor range row
+document.getElementById('settingGenerateNeighborMACs').addEventListener('change', (e) => {
+    document.getElementById('neighborRangeRow').style.display = e.target.checked ? 'block' : 'none';
+});
 
 async function saveSettings() {
     const settings = {
@@ -1000,10 +1449,21 @@ async function saveSettings() {
         min_channels_for_valid_hit: parseInt(document.getElementById('settingMinChannels').value),
         max_proxy_errors: parseInt(document.getElementById('settingMaxProxyErrors').value),
         proxy_rotation_percentage: parseInt(document.getElementById('settingProxyRotation').value),
+        request_delay: parseFloat(document.getElementById('settingRequestDelay').value),
+        force_proxy_rotation_every: parseInt(document.getElementById('settingForceProxyRotation').value),
+        user_agent_rotation: document.getElementById('settingUserAgentRotation').checked,
         use_proxies: document.getElementById('settingUseProxies').checked,
         auto_save: document.getElementById('settingAutoSave').checked,
         require_channels_for_valid_hit: document.getElementById('settingRequireChannels').checked,
-        unlimited_mac_retries: document.getElementById('settingUnlimitedRetries').checked
+        unlimited_mac_retries: document.getElementById('settingUnlimitedRetries').checked,
+        max_proxy_attempts_per_mac: parseInt(document.getElementById('settingMaxProxyAttempts').value),
+        macattack_compatible_mode: document.getElementById('settingCompatibleMode').checked,
+        // Advanced settings
+        cloudflare_bypass: document.getElementById('settingCloudflareBypass').checked,
+        random_x_forwarded_for: document.getElementById('settingRandomXForwardedFor').checked,
+        deduplicate_mac_lists: document.getElementById('settingDeduplicateMACs').checked,
+        generate_neighbor_macs: document.getElementById('settingGenerateNeighborMACs').checked,
+        neighbor_mac_range: parseInt(document.getElementById('settingNeighborRange').value)
     };
     
     try {
@@ -1022,6 +1482,53 @@ async function saveSettings() {
     } catch (e) {
         alert('Error: ' + e.message);
     }
+}
+
+// ============== PRESET FUNCTIONS ==============
+
+function applyMaxAccuracy() {
+    document.getElementById('settingSpeed').value = 12;
+    document.getElementById('settingTimeout').value = 15;
+    document.getElementById('settingMaxProxyErrors').value = 10;
+    document.getElementById('settingProxyRotation').value = 70;
+    document.getElementById('settingUnlimitedRetries').checked = true;
+    alert('✅ Max Accuracy settings applied! Click "Save Settings" to save.');
+}
+
+function applyBalanced() {
+    document.getElementById('settingSpeed').value = 18;
+    document.getElementById('settingTimeout').value = 12;
+    document.getElementById('settingMaxProxyErrors').value = 6;
+    document.getElementById('settingProxyRotation').value = 50;
+    document.getElementById('settingUnlimitedRetries').checked = false;
+    alert('⚖️ Balanced settings applied! Click "Save Settings" to save.');
+}
+
+function applyFastScan() {
+    document.getElementById('settingSpeed').value = 25;
+    document.getElementById('settingTimeout').value = 8;
+    document.getElementById('settingMaxProxyErrors').value = 4;
+    document.getElementById('settingProxyRotation').value = 30;
+    document.getElementById('settingUnlimitedRetries').checked = false;
+    alert('🚀 Fast Scan settings applied! Click "Save Settings" to save.');
+}
+
+function applyStealth() {
+    document.getElementById('settingSpeed').value = 6;
+    document.getElementById('settingTimeout').value = 12;
+    document.getElementById('settingRequestDelay').value = 1.5;
+    document.getElementById('settingForceProxyRotation').value = 5;
+    document.getElementById('settingUserAgentRotation').checked = true;
+    document.getElementById('settingMaxProxyErrors').value = 8;
+    document.getElementById('settingProxyRotation').value = 60;
+    alert('🥷 Stealth Mode settings applied! Click "Save Settings" to save.');
+}
+
+function applyNoProxy() {
+    document.getElementById('settingSpeed').value = 8;
+    document.getElementById('settingTimeout').value = 20;
+    document.getElementById('settingUseProxies').checked = false;
+    alert('🔗 No Proxy settings applied! Click "Save Settings" to save.');
 }
 
 // ============== PROXY FUNCTIONS ==============

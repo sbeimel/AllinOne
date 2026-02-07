@@ -357,7 +357,7 @@ def cleanup_occupied_streams():
     """Automatically clean up old/expired streams from occupied dictionary to prevent memory leaks."""
     global occupied
     current_time = time.time()
-    max_age = 7200  # 2 hours (conservative to avoid killing long-running streams)
+    max_age = 1800  # 30 minutes (reduced from 2 hours for better memory management)
     
     try:
         cleaned_count = 0
@@ -381,13 +381,13 @@ def cleanup_occupied_streams():
                 del occupied[portal_id]
         
         if cleaned_count > 0:
-            logger.info(f"Cleaned up {cleaned_count} expired stream(s) from occupied dictionary (older than 2 hours)")
+            logger.info(f"Cleaned up {cleaned_count} expired stream(s) from occupied dictionary (older than 30 minutes)")
         
     except Exception as e:
         logger.error(f"Error during occupied streams cleanup: {e}")
     
-    # Schedule next cleanup in 5 minutes
-    threading.Timer(300, cleanup_occupied_streams).start()
+    # Schedule next cleanup in 3 minutes (reduced from 5 minutes)
+    threading.Timer(180, cleanup_occupied_streams).start()
 
 
 # ============================================
@@ -506,11 +506,11 @@ class HLSStreamManager:
     def __init__(self, max_streams=10, inactive_timeout=30):
         self.streams = {}  # Key: "portalId_channelId", Value: stream info dict
         self.max_streams = max_streams
-        self.inactive_timeout = inactive_timeout
+        self.inactive_timeout = 120  # 2 minutes (increased from 30 seconds for better stability)
         self.lock = threading.Lock()
         self.monitor_thread = None
         self.running = False
-        logger.info(f"HLS Stream Manager initialized with max_streams={max_streams}, inactive_timeout={inactive_timeout}s")
+        logger.info(f"HLS Stream Manager initialized with max_streams={max_streams}, inactive_timeout={self.inactive_timeout}s")
         
     def start_monitoring(self):
         """Start the background monitoring thread."""
@@ -3701,6 +3701,11 @@ def scanner_get_attacks():
                 "mode": state.get("mode"),
                 "mac_list_index": state.get("mac_list_index", 0),
                 "mac_list_total": len(state.get("mac_list", [])),
+                # NEW: Performance Metrics
+                "cpm": state.get("cpm", 0),
+                "eta_seconds": state.get("eta_seconds", 0),
+                "hit_rate": state.get("hit_rate", 0.0),
+                "avg_quality": state.get("avg_quality", 0),
             })
         return jsonify({"attacks": attacks})
 
@@ -4117,6 +4122,301 @@ def scanner_batch_stats():
     })
 
 
+@app.route("/scanner/auto-detect-portal", methods=["POST"])
+@authorise
+def scanner_auto_detect_portal():
+    """API: Auto-detect portal endpoint"""
+    data = request.json
+    portal_url = data.get("portal_url", "").strip()
+    
+    if not portal_url:
+        return jsonify({"success": False, "error": "Portal URL required"})
+    
+    try:
+        detected_url, portal_type, version = scanner.auto_detect_portal_url(portal_url)
+        
+        return jsonify({
+            "success": True,
+            "detected_url": detected_url,
+            "portal_type": portal_type,
+            "version": version
+        })
+    except Exception as e:
+        logger.error(f"Portal auto-detection failed: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/scanner/convert-mac2m3u", methods=["POST"])
+@authorise
+def scanner_convert_mac2m3u():
+    """Convert MAC to M3U playlist"""
+    data = request.json
+    mac = data.get("mac", "").strip().upper()
+    portal_url = data.get("portal_url", "").strip()
+    proxy = data.get("proxy", "").strip()
+    
+    if not mac or not portal_url:
+        return jsonify({"success": False, "error": "MAC and Portal URL required"})
+    
+    try:
+        # Get token
+        token = stb.getToken(portal_url, mac, proxy)
+        if not token:
+            return jsonify({"success": False, "error": "Failed to get token"})
+        
+        # Get profile and expiry
+        stb.getProfile(portal_url, mac, token, proxy)
+        expiry = stb.getExpires(portal_url, mac, token, proxy)
+        
+        # Get channels and genres
+        channels = stb.getAllChannels(portal_url, mac, token, proxy)
+        genres = stb.getGenreNames(portal_url, mac, token, proxy)
+        
+        if not channels:
+            return jsonify({"success": False, "error": "No channels found"})
+        
+        # Generate M3U content
+        m3u_lines = ['#EXTM3U url-tvg="https://xmltv.info/de/epg.xml"\n']
+        
+        for channel in channels:
+            channel_id = str(channel.get("id", ""))
+            channel_name = str(channel.get("name", "Unnamed"))
+            channel_number = str(channel.get("number", ""))
+            genre_id = str(channel.get("tv_genre_id", ""))
+            genre = genres.get(genre_id, "General")
+            logo = str(channel.get("logo", ""))
+            tvg_id = str(channel.get("xmltv_id", ""))
+            
+            # Get stream URL
+            cmd = channel.get("cmd", "")
+            if not cmd:
+                continue
+            
+            # Create link
+            try:
+                from urllib.parse import quote
+                cmd_encoded = quote(cmd.replace("ffmpeg ", "").strip())
+                create_link_url = f"{portal_url}/portal.php?type=itv&action=create_link&cmd={cmd_encoded}&JsHttpRequest=1-xml"
+                
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 2 rev: 250 Safari/533.3",
+                    "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Berlin;",
+                    "Authorization": f"Bearer {token}",
+                }
+                
+                response = requests.get(create_link_url, headers=headers, timeout=10, proxies={"http": proxy, "https": proxy} if proxy else None)
+                link_data = response.json()
+                
+                play_link = link_data.get("js", {}).get("cmd", "")
+                if not play_link:
+                    continue
+                
+                play_link = play_link.replace("ffmpeg ", "").strip()
+                
+                # Remove play token if present
+                if "?token=" in play_link:
+                    play_link = play_link.split("?token=")[0]
+                
+                # Build EXTINF line
+                extinf = f'#EXTINF:-1 tvg-id="{tvg_id}" tvg-logo="{logo}" group-title="{genre}",{channel_name}'
+                m3u_lines.append(extinf + '\n')
+                m3u_lines.append(play_link + '\n')
+                
+            except Exception as e:
+                logger.error(f"Error creating link for channel {channel_name}: {e}")
+                continue
+        
+        # Generate filename
+        portal_name = portal_url.replace('http://', '').replace('https://', '').replace('/', '_').replace(':', '_').replace('.', '_')
+        filename = f"{portal_name}_{mac.replace(':', '')}.m3u"
+        
+        # Return M3U file
+        m3u_content = ''.join(m3u_lines)
+        return Response(
+            m3u_content,
+            mimetype="audio/x-mpegurl",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error converting MAC to M3U: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/scanner/crawl-portals", methods=["POST"])
+@authorise
+def scanner_crawl_portals():
+    """Crawl new portals from urlscan.io"""
+    try:
+        portals = scanner.crawl_portals_urlscan()
+        return jsonify({"success": True, "portals": portals, "count": len(portals)})
+    except Exception as e:
+        logger.error(f"Portal crawl failed: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/scanner/export-all-m3u", methods=["POST"])
+@authorise
+def scanner_export_all_m3u():
+    """Export all found MACs as single M3U playlist"""
+    data = request.json
+    filter_portal = data.get("portal", None)
+    filter_min_channels = data.get("min_channels", 0)
+    filter_de_only = data.get("de_only", False)
+    max_macs = data.get("max_macs", 50)  # Limit to prevent timeout
+    
+    try:
+        # Get all found MACs from DB
+        found_macs = scanner.get_found_macs()
+        
+        # Apply filters
+        filtered = []
+        for hit in found_macs:
+            if filter_portal and hit["portal"] != filter_portal:
+                continue
+            if hit["channels"] < filter_min_channels:
+                continue
+            if filter_de_only and not hit["has_de"]:
+                continue
+            filtered.append(hit)
+        
+        if not filtered:
+            return jsonify({"success": False, "error": "No MACs match filters"})
+        
+        # Limit to max_macs
+        filtered = filtered[:max_macs]
+        
+        # Generate M3U content
+        m3u_lines = ['#EXTM3U url-tvg="https://xmltv.info/de/epg.xml"\n']
+        m3u_lines.append(f'# Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n')
+        m3u_lines.append(f'# Total MACs: {len(filtered)}\n\n')
+        
+        successful_macs = 0
+        failed_macs = 0
+        
+        for idx, hit in enumerate(filtered, 1):
+            mac = hit["mac"]
+            portal = hit["portal"]
+            
+            logger.info(f"Exporting MAC {idx}/{len(filtered)}: {mac}")
+            
+            try:
+                # Get token
+                token = stb.getToken(portal, mac, None)
+                if not token:
+                    failed_macs += 1
+                    continue
+                
+                # Get profile
+                stb.getProfile(portal, mac, token, None)
+                
+                # Get channels and genres
+                channels = stb.getAllChannels(portal, mac, token, None)
+                genres = stb.getGenreNames(portal, mac, token, None)
+                
+                if not channels:
+                    failed_macs += 1
+                    continue
+                
+                # Add comment for this MAC
+                portal_short = portal.replace('http://', '').replace('https://', '').split('/')[0]
+                m3u_lines.append(f'# MAC: {mac} | Portal: {portal_short} | Channels: {len(channels)}\n')
+                
+                # Add channels to M3U
+                for channel in channels:
+                    channel_name = str(channel.get("name", "Unnamed"))
+                    genre_id = str(channel.get("tv_genre_id", ""))
+                    genre = genres.get(genre_id, "General")
+                    logo = str(channel.get("logo", ""))
+                    tvg_id = str(channel.get("xmltv_id", ""))
+                    
+                    # Get stream URL
+                    cmd = channel.get("cmd", "")
+                    if not cmd:
+                        continue
+                    
+                    try:
+                        from urllib.parse import quote
+                        cmd_encoded = quote(cmd.replace("ffmpeg ", "").strip())
+                        create_link_url = f"{portal}/portal.php?type=itv&action=create_link&cmd={cmd_encoded}&JsHttpRequest=1-xml"
+                        
+                        headers = {
+                            "User-Agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 2 rev: 250 Safari/533.3",
+                            "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Berlin;",
+                            "Authorization": f"Bearer {token}",
+                        }
+                        
+                        response = requests.get(create_link_url, headers=headers, timeout=10)
+                        link_data = response.json()
+                        
+                        play_link = link_data.get("js", {}).get("cmd", "")
+                        if not play_link:
+                            continue
+                        
+                        play_link = play_link.replace("ffmpeg ", "").strip()
+                        
+                        # Remove play token
+                        if "?token=" in play_link:
+                            play_link = play_link.split("?token=")[0]
+                        
+                        # Build EXTINF line with portal prefix
+                        extinf = f'#EXTINF:-1 tvg-id="{tvg_id}" tvg-logo="{logo}" group-title="[{portal_short}] {genre}",{channel_name}'
+                        m3u_lines.append(extinf + '\n')
+                        m3u_lines.append(play_link + '\n')
+                    
+                    except Exception as e:
+                        logger.debug(f"Failed to get link for channel {channel_name}: {e}")
+                        continue
+                
+                m3u_lines.append('\n')
+                successful_macs += 1
+            
+            except Exception as e:
+                logger.error(f"Failed to export MAC {mac}: {e}")
+                failed_macs += 1
+                continue
+        
+        if successful_macs == 0:
+            return jsonify({"success": False, "error": "Failed to export any MACs"})
+        
+        # Return M3U file
+        m3u_content = ''.join(m3u_lines)
+        filename = f"scanner_all_macs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.m3u"
+        
+        logger.info(f"M3U export complete: {successful_macs} successful, {failed_macs} failed")
+        
+        return Response(
+            m3u_content,
+            mimetype="audio/x-mpegurl",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting all MACs to M3U: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# ============== ASYNC MAC SCANNER ==============
+
+@app.route("/scanner-new")
+@authorise
+def scanner_new_page():
+    """Async MAC Scanner Dashboard"""
+    return render_template("scanner-new.html")
+
+
+@app.route("/scanner/crawl-portals", methods=["POST"])
+@authorise
+def scanner_crawl_portals():
+    """Crawl new portals from urlscan.io"""
+    try:
+        portals = scanner.crawl_portals_urlscan()
+        return jsonify({"success": True, "portals": portals, "count": len(portals)})
+    except Exception as e:
+        logger.error(f"Portal crawl failed: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
 # ============== ASYNC MAC SCANNER ==============
 
 @app.route("/scanner-new")
@@ -4158,6 +4458,11 @@ def scanner_new_get_attacks():
                     "mode": state.get("mode"),
                     "mac_list_index": state.get("mac_list_index", 0),
                     "mac_list_total": len(state.get("mac_list", [])),
+                    # NEW: Performance Metrics
+                    "cpm": state.get("cpm", 0),
+                    "eta_seconds": state.get("eta_seconds", 0),
+                    "hit_rate": state.get("hit_rate", 0.0),
+                    "avg_quality": state.get("avg_quality", 0),
                 })
             return {"attacks": attacks}
     
@@ -4295,6 +4600,39 @@ def scanner_new_pause():
     if success:
         return jsonify({"success": True, "paused": paused})
     return jsonify({"success": False, "error": "Attack not found"})
+
+
+@app.route("/scanner-new/auto-detect-portal", methods=["POST"])
+@authorise
+def scanner_new_auto_detect_portal():
+    """API: Auto-detect portal endpoint (async version)"""
+    data = request.json
+    portal_url = data.get("portal_url", "").strip()
+    
+    if not portal_url:
+        return jsonify({"success": False, "error": "Portal URL required"})
+    
+    try:
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        detected_url, portal_type, version = loop.run_until_complete(
+            scanner_async.auto_detect_portal_url_async(portal_url)
+        )
+        
+        return jsonify({
+            "success": True,
+            "detected_url": detected_url,
+            "portal_type": portal_type,
+            "version": version
+        })
+    except Exception as e:
+        logger.error(f"Portal auto-detection failed: {e}")
+        return jsonify({"success": False, "error": str(e)})
 
 
 # Async scanner uses same settings, data, and proxy management as sync scanner

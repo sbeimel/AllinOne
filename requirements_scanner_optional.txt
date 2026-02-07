@@ -1,0 +1,12 @@
+# Optional Scanner Dependencies
+# Install with: pip install -r requirements_scanner_optional.txt
+
+# Cloudscraper - Cloudflare Challenge Bypass
+# Enables automatic bypass of Cloudflare protection
+# Falls back to standard requests if not installed
+cloudscraper>=1.2.71
+
+# Performance Enhancements (already in main requirements)
+# orjson>=3.9.0  # Fast JSON parsing (10x speedup)
+# aiohttp>=3.9.0  # Async HTTP (for scanner_async.py)
+# aiodns>=3.1.0   # Async DNS resolution
