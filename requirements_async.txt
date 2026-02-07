@@ -1,0 +1,16 @@
+# Async Scanner Dependencies
+# Install with: pip install -r requirements_async.txt
+
+# Core async libraries
+aiohttp>=3.9.0          # Async HTTP client
+aiodns>=3.1.0           # Async DNS resolver
+aiofiles>=23.2.0        # Async file I/O (optional)
+
+# Performance
+orjson>=3.11.0          # Fast JSON (10x faster)
+uvloop>=0.19.0          # Fast event loop (optional, Linux/Mac only)
+
+# Already in main requirements.txt:
+# requests>=2.32.5
+# urllib3>=2.6.3
+# cryptography>=46.0.4

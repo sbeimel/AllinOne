@@ -1,0 +1,762 @@
+{% extends "base.html" %}
+
+{% block title %}MAC Scanner - MacReplayXC{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+    <div class="container-xl">
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <h2 class="page-title">
+                    <i class="ti ti-radar me-2"></i>MAC Scanner
+                </h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-body">
+    <div class="container-xl">
+        
+        <!-- Start New Scan -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Start New Scan</h3>
+            </div>
+            <div class="card-body">
+                <form id="scannerForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label required">Portal URL</label>
+                            <input type="text" class="form-control" id="portalUrl" 
+                                   placeholder="http://portal.com/c" required>
+                            <small class="form-hint">Portal URL to scan</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Mode</label>
+                            <select class="form-select" id="scanMode">
+                                <option value="random">Random MACs</option>
+                                <option value="list">MAC List</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Speed (Threads)</label>
+                            <input type="number" class="form-control" id="scanSpeed" 
+                                   value="10" min="1" max="50">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3" id="macListRow" style="display: none;">
+                        <div class="col-md-12">
+                            <label class="form-label">MAC List (one per line)</label>
+                            <textarea class="form-control" id="macList" rows="5" 
+                                      placeholder="00:1A:79:XX:XX:XX&#10;00:1A:79:YY:YY:YY"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">MAC Prefix (for random mode)</label>
+                            <input type="text" class="form-control" id="macPrefix" 
+                                   value="00:1A:79:" placeholder="00:1A:79:">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Timeout (seconds)</label>
+                            <input type="number" class="form-control" id="scanTimeout" 
+                                   value="10" min="5" max="30">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Proxies (optional, one per line)</label>
+                            <textarea class="form-control" id="proxies" rows="3" 
+                                      placeholder="http://proxy1:port&#10;socks5://proxy2:port"></textarea>
+                            <small class="form-hint">Leave empty to scan without proxies</small>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-radar me-2"></i>Start Scan
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Active Scans -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Active Scans</h3>
+                <div class="card-actions">
+                    <button class="btn btn-sm btn-ghost-secondary" onclick="refreshStatus()">
+                        <i class="ti ti-refresh"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="activeScans">
+                    <div class="text-muted text-center py-4">
+                        <i class="ti ti-radar" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-2">No active scans</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Found MACs / Hits -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Found MACs (Hits)</h3>
+                <div class="card-actions">
+                    <div class="btn-list">
+                        <button class="btn btn-sm btn-ghost-secondary" onclick="refreshHits()">
+                            <i class="ti ti-refresh"></i> Refresh
+                        </button>
+                        <button class="btn btn-sm btn-ghost-primary" onclick="exportHits()">
+                            <i class="ti ti-download"></i> Export
+                        </button>
+                        <button class="btn btn-sm btn-ghost-danger" onclick="clearHits()">
+                            <i class="ti ti-trash"></i> Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filter & Group Controls -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Filter by Portal</label>
+                        <select class="form-select" id="portalFilter" onchange="applyFilters()">
+                            <option value="">All Portals</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Min. Channels</label>
+                        <input type="number" class="form-control" id="minChannelsFilter" 
+                               value="0" min="0" onchange="applyFilters()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">DE Only</label>
+                        <select class="form-select" id="deFilter" onchange="applyFilters()">
+                            <option value="">All</option>
+                            <option value="true">🇩🇪 Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Group By</label>
+                        <select class="form-select" id="groupBy" onchange="applyFilters()">
+                            <option value="">No Grouping</option>
+                            <option value="portal">By Portal</option>
+                            <option value="de">By DE Status</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Stats Summary -->
+                <div class="row mb-3" id="hitsSummary" style="display: none;">
+                    <div class="col-md-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="text-muted">Total Hits</div>
+                                <div class="h3 mb-0" id="totalHits">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="text-muted">Unique Portals</div>
+                                <div class="h3 mb-0" id="uniquePortals">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="text-muted">DE Hits</div>
+                                <div class="h3 mb-0" id="deHits">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="text-muted">Avg. Channels</div>
+                                <div class="h3 mb-0" id="avgChannels">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table" id="hitsTable">
+                        <thead>
+                            <tr>
+                                <th>Portal</th>
+                                <th>MAC</th>
+                                <th>Expiry</th>
+                                <th>Channels</th>
+                                <th>DE</th>
+                                <th>Found At</th>
+                                <th class="w-1">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hitsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
+                                    <p class="mt-2">No hits found yet</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+// Auto-refresh every 5 seconds
+let refreshInterval = setInterval(refreshStatus, 5000);
+
+// Global hits data
+let allHitsData = [];
+
+// Initial load
+refreshStatus();
+
+// Show/hide MAC list based on mode
+document.getElementById('scanMode').addEventListener('change', (e) => {
+    const macListRow = document.getElementById('macListRow');
+    macListRow.style.display = e.target.value === 'list' ? 'block' : 'none';
+});
+
+// Start scan
+document.getElementById('scannerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const portalUrl = document.getElementById('portalUrl').value;
+    const mode = document.getElementById('scanMode').value;
+    const speed = parseInt(document.getElementById('scanSpeed').value);
+    const timeout = parseInt(document.getElementById('scanTimeout').value);
+    const macPrefix = document.getElementById('macPrefix').value;
+    const macList = document.getElementById('macList').value;
+    const proxies = document.getElementById('proxies').value;
+    
+    const resp = await fetch('/scanner/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            portal_url: portalUrl,
+            mode: mode,
+            speed: speed,
+            timeout: timeout,
+            mac_prefix: macPrefix,
+            mac_list: macList,
+            proxies: proxies
+        })
+    });
+    
+    const result = await resp.json();
+    if (result.success) {
+        // Show success message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible';
+        alert.innerHTML = `
+            <div class="d-flex">
+                <div><i class="ti ti-check alert-icon"></i></div>
+                <div>
+                    <h4 class="alert-title">Scan started!</h4>
+                    <div class="text-secondary">Attack ID: ${result.attack_id}</div>
+                </div>
+            </div>
+            <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+        `;
+        document.querySelector('.page-body .container-xl').insertBefore(alert, document.querySelector('.page-body .container-xl').firstChild);
+        
+        // Refresh status immediately
+        refreshStatus();
+        
+        // Clear form
+        document.getElementById('scannerForm').reset();
+    } else {
+        alert('Error: ' + result.error);
+    }
+});
+
+// Refresh active scans
+async function refreshStatus() {
+    const resp = await fetch('/scanner/attacks');
+    const data = await resp.json();
+    
+    const container = document.getElementById('activeScans');
+    
+    if (!data.attacks || data.attacks.length === 0) {
+        container.innerHTML = `
+            <div class="text-muted text-center py-4">
+                <i class="ti ti-radar" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2">No active scans</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    for (const attack of data.attacks) {
+        const progress = attack.tested > 0 ? 
+            Math.round((attack.hits / attack.tested) * 100) : 0;
+        
+        const statusBadge = attack.paused ? 
+            '<span class="badge bg-warning">Paused</span>' : 
+            '<span class="badge bg-success">Running</span>';
+        
+        html += `
+            <div class="card mb-2">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h4 class="mb-1">${attack.portal_url}</h4>
+                            <div class="text-muted">
+                                <span class="badge bg-blue-lt me-1">${attack.mode}</span>
+                                ${statusBadge}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="btn-list">
+                                <button class="btn btn-sm btn-ghost-warning" onclick="pauseAttack('${attack.id}')">
+                                    <i class="ti ti-player-pause"></i>
+                                </button>
+                                <button class="btn btn-sm btn-ghost-danger" onclick="stopAttack('${attack.id}')">
+                                    <i class="ti ti-player-stop"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-3">
+                            <div class="text-muted">Tested</div>
+                            <div class="h3 mb-0">${attack.tested}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted">Hits</div>
+                            <div class="h3 mb-0 text-success">${attack.hits}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted">Errors</div>
+                            <div class="h3 mb-0 text-danger">${attack.errors}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted">Elapsed</div>
+                            <div class="h3 mb-0">${attack.elapsed}s</div>
+                        </div>
+                    </div>
+                    ${attack.mode === 'list' ? `
+                    <div class="mt-2">
+                        <div class="text-muted">Progress: ${attack.mac_list_index} / ${attack.mac_list_total}</div>
+                        <div class="progress">
+                            <div class="progress-bar" style="width: ${(attack.mac_list_index / attack.mac_list_total * 100)}%"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div class="mt-2">
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: ${progress}%">
+                                ${progress}% hit rate
+                            </div>
+                        </div>
+                    </div>
+                    ${attack.current_mac ? `
+                    <div class="mt-2 text-muted small">
+                        Current: ${attack.current_mac} ${attack.current_proxy ? '(' + attack.current_proxy + ')' : ''}
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Collect all hits from all attacks
+    refreshHits();
+}
+
+// Refresh found MACs
+async function refreshHits() {
+    // Get all found MACs from database (no filters - we filter client-side)
+    const resp = await fetch('/scanner/found-macs');
+    const allHits = await resp.json();
+    
+    // Also get hits from active attacks (in-memory, not yet saved to DB)
+    const attacksResp = await fetch('/scanner/attacks');
+    const attacksData = await attacksResp.json();
+    
+    // Collect hits from active attacks
+    let activeHits = [];
+    if (attacksData.attacks) {
+        for (const attack of attacksData.attacks) {
+            if (attack.found_macs) {
+                activeHits = activeHits.concat(attack.found_macs);
+            }
+        }
+    }
+    
+    // Merge: persistent (DB) + active (in-memory)
+    // Remove duplicates by MAC+Portal (DB hits take precedence)
+    const hitMap = new Map();
+    
+    // Add DB hits first
+    for (const hit of allHits) {
+        const key = `${hit.mac}|${hit.portal}`;
+        hitMap.set(key, hit);
+    }
+    
+    // Add active hits (only if not already in DB)
+    for (const hit of activeHits) {
+        const key = `${hit.mac}|${hit.portal}`;
+        if (!hitMap.has(key)) {
+            hitMap.set(key, hit);
+        }
+    }
+    
+    allHitsData = Array.from(hitMap.values());
+    
+    // Update portal filter dropdown
+    updatePortalFilter();
+    
+    // Apply filters and display
+    applyFilters();
+}
+
+// Update portal filter dropdown
+function updatePortalFilter() {
+    const portalFilter = document.getElementById('portalFilter');
+    const uniquePortals = [...new Set(allHitsData.map(h => h.portal))];
+    
+    // Keep current selection
+    const currentValue = portalFilter.value;
+    
+    // Rebuild options
+    portalFilter.innerHTML = '<option value="">All Portals</option>';
+    for (const portal of uniquePortals.sort()) {
+        const option = document.createElement('option');
+        option.value = portal;
+        option.textContent = portal;
+        portalFilter.appendChild(option);
+    }
+    
+    // Restore selection
+    portalFilter.value = currentValue;
+}
+
+// Apply filters and grouping
+function applyFilters() {
+    const portalFilter = document.getElementById('portalFilter').value;
+    const minChannels = parseInt(document.getElementById('minChannelsFilter').value) || 0;
+    const deFilter = document.getElementById('deFilter').value;
+    const groupBy = document.getElementById('groupBy').value;
+    
+    // Filter hits
+    let filteredHits = allHitsData.filter(hit => {
+        if (portalFilter && hit.portal !== portalFilter) return false;
+        if (hit.channels < minChannels) return false;
+        if (deFilter === 'true' && !hit.has_de) return false;
+        return true;
+    });
+    
+    // Update stats
+    updateStats(filteredHits);
+    
+    // Display hits
+    if (groupBy === 'portal') {
+        displayGroupedByPortal(filteredHits);
+    } else if (groupBy === 'de') {
+        displayGroupedByDE(filteredHits);
+    } else {
+        displayHits(filteredHits);
+    }
+}
+
+// Update statistics
+function updateStats(hits) {
+    const summary = document.getElementById('hitsSummary');
+    
+    if (hits.length === 0) {
+        summary.style.display = 'none';
+        return;
+    }
+    
+    summary.style.display = 'flex';
+    
+    const uniquePortals = new Set(hits.map(h => h.portal)).size;
+    const deHits = hits.filter(h => h.has_de).length;
+    const avgChannels = Math.round(hits.reduce((sum, h) => sum + h.channels, 0) / hits.length);
+    
+    document.getElementById('totalHits').textContent = hits.length;
+    document.getElementById('uniquePortals').textContent = uniquePortals;
+    document.getElementById('deHits').textContent = deHits;
+    document.getElementById('avgChannels').textContent = avgChannels;
+}
+
+// Display hits (no grouping)
+function displayHits(hits) {
+    const tbody = document.getElementById('hitsTableBody');
+    
+    if (!hits || hits.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p class="mt-2">No hits found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Sort by found_at descending (newest first)
+    hits.sort((a, b) => new Date(b.found_at) - new Date(a.found_at));
+    
+    let html = '';
+    for (const hit of hits) {
+        html += renderHitRow(hit);
+    }
+    
+    tbody.innerHTML = html;
+}
+
+// Display hits grouped by portal
+function displayGroupedByPortal(hits) {
+    const tbody = document.getElementById('hitsTableBody');
+    
+    if (!hits || hits.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p class="mt-2">No hits found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Group by portal
+    const grouped = {};
+    for (const hit of hits) {
+        if (!grouped[hit.portal]) {
+            grouped[hit.portal] = [];
+        }
+        grouped[hit.portal].push(hit);
+    }
+    
+    let html = '';
+    for (const [portal, portalHits] of Object.entries(grouped).sort()) {
+        // Group header
+        html += `
+            <tr class="table-active">
+                <td colspan="7">
+                    <strong>${portal}</strong>
+                    <span class="badge bg-blue-lt ms-2">${portalHits.length} hits</span>
+                </td>
+            </tr>
+        `;
+        
+        // Sort hits by found_at
+        portalHits.sort((a, b) => new Date(b.found_at) - new Date(a.found_at));
+        
+        // Hits
+        for (const hit of portalHits) {
+            html += renderHitRow(hit);
+        }
+    }
+    
+    tbody.innerHTML = html;
+}
+
+// Display hits grouped by DE status
+function displayGroupedByDE(hits) {
+    const tbody = document.getElementById('hitsTableBody');
+    
+    if (!hits || hits.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="ti ti-database-off" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p class="mt-2">No hits found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Group by DE status
+    const deHits = hits.filter(h => h.has_de);
+    const nonDeHits = hits.filter(h => !h.has_de);
+    
+    let html = '';
+    
+    // DE Hits
+    if (deHits.length > 0) {
+        html += `
+            <tr class="table-active">
+                <td colspan="7">
+                    <strong>🇩🇪 German Channels</strong>
+                    <span class="badge bg-blue-lt ms-2">${deHits.length} hits</span>
+                </td>
+            </tr>
+        `;
+        
+        deHits.sort((a, b) => new Date(b.found_at) - new Date(a.found_at));
+        for (const hit of deHits) {
+            html += renderHitRow(hit);
+        }
+    }
+    
+    // Non-DE Hits
+    if (nonDeHits.length > 0) {
+        html += `
+            <tr class="table-active">
+                <td colspan="7">
+                    <strong>Other Channels</strong>
+                    <span class="badge bg-blue-lt ms-2">${nonDeHits.length} hits</span>
+                </td>
+            </tr>
+        `;
+        
+        nonDeHits.sort((a, b) => new Date(b.found_at) - new Date(a.found_at));
+        for (const hit of nonDeHits) {
+            html += renderHitRow(hit);
+        }
+    }
+    
+    tbody.innerHTML = html;
+}
+
+// Render single hit row
+function renderHitRow(hit) {
+    const deIcon = hit.has_de ? '🇩🇪' : '';
+    const foundAt = new Date(hit.found_at).toLocaleString();
+    
+    return `
+        <tr>
+            <td><small class="text-muted">${hit.portal}</small></td>
+            <td><code>${hit.mac}</code></td>
+            <td>${hit.expiry}</td>
+            <td><span class="badge bg-blue-lt">${hit.channels}</span></td>
+            <td>${deIcon}</td>
+            <td><small class="text-muted">${foundAt}</small></td>
+            <td>
+                <button class="btn btn-sm btn-success" 
+                        onclick='createPortal(${JSON.stringify(hit).replace(/'/g, "&#39;")})'>
+                    <i class="ti ti-plus"></i> Create Portal
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
+// Pause attack
+async function pauseAttack(attackId) {
+    const resp = await fetch('/scanner/pause', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({attack_id: attackId})
+    });
+    
+    const result = await resp.json();
+    if (result.success) {
+        refreshStatus();
+    }
+}
+
+// Stop attack
+async function stopAttack(attackId) {
+    if (!confirm('Stop this scan?')) {
+        return;
+    }
+    
+    const resp = await fetch('/scanner/stop', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({attack_id: attackId})
+    });
+    
+    const result = await resp.json();
+    if (result.success) {
+        refreshStatus();
+    }
+}
+
+// Create portal from hit
+async function createPortal(hitData) {
+    if (!confirm(`Create portal from MAC ${hitData.mac}?`)) {
+        return;
+    }
+    
+    const resp = await fetch('/scanner/create-portal', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({hit_data: hitData})
+    });
+    
+    const result = await resp.json();
+    
+    if (result.success) {
+        // Show success message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible';
+        alert.innerHTML = `
+            <div class="d-flex">
+                <div><i class="ti ti-check alert-icon"></i></div>
+                <div>
+                    <h4 class="alert-title">Portal created!</h4>
+                    <div class="text-secondary">${result.portal_name}</div>
+                </div>
+            </div>
+            <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+        `;
+        document.querySelector('.page-body .container-xl').insertBefore(alert, document.querySelector('.page-body .container-xl').firstChild);
+        
+        // Redirect to portals page after 2 seconds
+        setTimeout(() => {
+            window.location.href = '/portals';
+        }, 2000);
+    } else {
+        alert('Error: ' + result.error);
+    }
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    clearInterval(refreshInterval);
+});
+
+// Export hits
+async function exportHits() {
+    window.location.href = '/scanner/export-found-macs';
+}
+
+// Clear all hits
+async function clearHits() {
+    if (!confirm('Clear all found MACs? This cannot be undone!')) {
+        return;
+    }
+    
+    const resp = await fetch('/scanner/found-macs', {
+        method: 'DELETE'
+    });
+    
+    const result = await resp.json();
+    if (result.success) {
+        alert('All found MACs cleared!');
+        refreshHits();
+    } else {
+        alert('Error clearing MACs');
+    }
+}
+</script>
+
+{% endblock %}
