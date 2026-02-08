@@ -4405,27 +4405,6 @@ def scanner_new_page():
     return render_template("scanner-new.html")
 
 
-@app.route("/scanner/crawl-portals", methods=["POST"])
-@authorise
-def scanner_crawl_portals():
-    """Crawl new portals from urlscan.io"""
-    try:
-        portals = scanner.crawl_portals_urlscan()
-        return jsonify({"success": True, "portals": portals, "count": len(portals)})
-    except Exception as e:
-        logger.error(f"Portal crawl failed: {e}")
-        return jsonify({"success": False, "error": str(e)})
-
-
-# ============== ASYNC MAC SCANNER ==============
-
-@app.route("/scanner-new")
-@authorise
-def scanner_new_page():
-    """Async MAC Scanner Dashboard"""
-    return render_template("scanner-new.html")
-
-
 @app.route("/scanner-new/attacks")
 @authorise
 def scanner_new_get_attacks():
